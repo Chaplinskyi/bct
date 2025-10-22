@@ -10,33 +10,45 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import ua.karpaty.barcodetracker.Dto.ChartDataDto;
+import ua.karpaty.barcodetracker.Dto.DashboardStatsDto;
+import ua.karpaty.barcodetracker.Dto.LocationDTO;
+import ua.karpaty.barcodetracker.Dto.MonthlyStatDto;
 import ua.karpaty.barcodetracker.Entity.Barcode;
+import ua.karpaty.barcodetracker.Entity.ImportBatch;
 import ua.karpaty.barcodetracker.Entity.LocationHistory;
 import ua.karpaty.barcodetracker.Entity.StatusHistory;
 import ua.karpaty.barcodetracker.Repository.BarcodeRepository;
+import ua.karpaty.barcodetracker.Repository.ImportBatchRepository;
 import ua.karpaty.barcodetracker.Repository.LocationHistoryRepository;
 import ua.karpaty.barcodetracker.Repository.StatusHistoryRepository;
+import ua.karpaty.barcodetracker.specification.BarcodeSpecification;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 public class BarcodeService {
 
     private final BarcodeRepository barcodeRepository;
+    private final ImportBatchRepository importBatchRepository;
     private final LocationHistoryRepository locationHistoryRepository;
     private final StatusHistoryRepository statusHistoryRepository;
 
     @Autowired
-    public BarcodeService(BarcodeRepository barcodeRepository,
+    public BarcodeService(BarcodeRepository barcodeRepository, ImportBatchRepository importBatchRepository,
                           LocationHistoryRepository locationHistoryRepository,
                           StatusHistoryRepository statusHistoryRepository) {
         this.barcodeRepository = barcodeRepository;
+        this.importBatchRepository = importBatchRepository;
         this.locationHistoryRepository = locationHistoryRepository;
         this.statusHistoryRepository = statusHistoryRepository;
     }
@@ -58,15 +70,20 @@ public class BarcodeService {
     public void saveAll(List<Barcode> barcodes) {
         if (barcodes == null || barcodes.isEmpty()) return;
 
-        for (Barcode b : barcodes) {
-            b.setLocation("prestock"); // встановлення фіксованої локації при імпорті
+        //Створюємо новий запис про імпорт
+        long nextId = importBatchRepository.findTopByOrderByIdDesc()
+                .map(lastBatch -> lastBatch.getId() + 1)
+                .orElse(1L);
+        ImportBatch batch = new ImportBatch("Import - " + nextId, LocalDateTime.now());
+        importBatchRepository.save(batch);
 
-            // Встановлення дати додавання
-            if (b.getParsedDate() != null) {
-                b.setLastUpdated(b.getParsedDate());
-            } else {
-                b.setLastUpdated(LocalDateTime.now());
-            }
+        for (Barcode b : barcodes) {
+            //b.setLocation("prestock");
+            b.setImportBatch(batch);
+            // Встановлення початкової дати
+            LocalDateTime initialDate = b.getParsedDate() != null ? b.getParsedDate() : LocalDateTime.now();
+            b.setCreationDate(initialDate); // Встановлюємо дату створення
+            b.setLastUpdated(initialDate);  // І дата останнього оновлення така ж
         }
 
         List<Barcode> savedBarcodes = barcodeRepository.saveAll(barcodes);
@@ -75,7 +92,7 @@ public class BarcodeService {
         List<StatusHistory> statHistories = new ArrayList<>();
 
         for (Barcode b : savedBarcodes) {
-            // ⚠️ Використовуємо ту ж дату, що і в lastUpdated
+            // Використовуємо ту ж дату, що і в lastUpdated
             LocalDateTime changeTime = b.getLastUpdated();
 
             locHistories.add(createLocationHistory(b, null, b.getLocation(), changeTime));
@@ -84,6 +101,21 @@ public class BarcodeService {
 
         locationHistoryRepository.saveAll(locHistories);
         statusHistoryRepository.saveAll(statHistories);
+    }
+
+    // Нові методи для контролера
+    public String getNextImportName() {
+        return importBatchRepository.findTopByOrderByIdDesc()
+                .map(lastBatch -> "Import - " + (lastBatch.getId() + 1))
+                .orElse("Import - 1");
+    }
+
+    public List<ImportBatch> findAllImportBatches() {
+        return importBatchRepository.findAllByOrderByIdDesc();
+    }
+
+    public Page<Barcode> findBarcodesByImportId(Long batchId, Pageable pageable) {
+        return barcodeRepository.findByImportBatchId(batchId, pageable);
     }
 
     @Transactional
@@ -124,66 +156,90 @@ public class BarcodeService {
         return barcodeRepository.findByStatusAndApnOrderByLastUpdatedDesc("out", apn);
     }
 
+    // --- МЕТОДИ ДЛЯ ПАГІНАЦІЇ (повертають Page) ---
+
+    public Page<Barcode> findAllOutSortedByDate(Pageable pageable) {
+        return barcodeRepository.findByStatusOrderByLastUpdatedDesc("out", pageable);
+    }
+
+    public Page<Barcode> findOutByDateRange(LocalDateTime start, LocalDateTime end, Pageable pageable) {
+        return barcodeRepository.findByStatusAndLastUpdatedBetweenOrderByLastUpdatedDesc("out", start, end, pageable);
+    }
+
+    public Page<Barcode> findOutByDateAndApn(LocalDateTime from, LocalDateTime to, String apn, Pageable pageable) {
+        return barcodeRepository.findByStatusAndDateRangeAndApn("out", from, to, apn, pageable);
+    }
+
+    public Page<Barcode> findOutByApn(String apn, Pageable pageable) {
+        return barcodeRepository.findByStatusAndApnOrderByLastUpdatedDesc("out", apn, pageable);
+    }
+
     @Transactional
-    public void updateBarcodesToOut(List<String> barcodes) {
-        int batchSize = 500;
-        for (int i = 0; i < barcodes.size(); i += batchSize) {
-            int end = Math.min(i + batchSize, barcodes.size());
-            List<String> batch = barcodes.subList(i, end);
-            barcodeRepository.markAllOut(batch);
+    public void updateBarcodesToOut(List<String> codes) {
+        log.info("Починаємо асинхронне списання для {} штрих-кодів.", codes.size());
+        List<Barcode> barcodesToUpdate = barcodeRepository.findByCodeIn(codes);
+
+        List<StatusHistory> historyToSave = new ArrayList<>();
+
+        for (Barcode barcode : barcodesToUpdate) {
+            if (!"out".equalsIgnoreCase(barcode.getStatus())) {
+                String oldStatus = barcode.getStatus();
+                barcode.setStatus("out");
+                barcode.setLastUpdated(LocalDateTime.now());
+                historyToSave.add(new StatusHistory(barcode, oldStatus, "out", LocalDateTime.now()));
+            }
         }
+
+        barcodeRepository.saveAll(barcodesToUpdate);
+        statusHistoryRepository.saveAll(historyToSave);
+        log.info("Завершено списання для {} штрих-кодів.", barcodesToUpdate.size());
     }
 
     public List<String> readFirstColumnBarcodes(MultipartFile file, int maxRows) throws IOException {
-        // 1. Перевірка кількості рядків та колонок (попередній аналіз)
-        try (InputStream previewInputStream = file.getInputStream();
-             Workbook previewWorkbook = new XSSFWorkbook(previewInputStream)) {
-
-            Sheet sheet = previewWorkbook.getSheetAt(0);
-
-            int rows = sheet.getPhysicalNumberOfRows();
-            if (rows > maxRows) {
-                return null; // перевищення кількості рядків
-            }
-
-            for (Row row : sheet) {
-                for (int i = 1; i < row.getLastCellNum(); i++) {
-                    Cell cell = row.getCell(i, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-                    if (cell != null && cell.getCellType() != CellType.BLANK) {
-                        return Collections.emptyList(); // зайві стовпчики
-                    }
-                }
-            }
-        }
-
-        // 2. Якщо все гаразд — читаємо ефективно штрихкоди
-        List<String> barcodes = new ArrayList<>(Math.min(maxRows, 1000));
-        try (InputStream is = file.getInputStream();
-             Workbook workbook = StreamingReader.builder()
-                     .rowCacheSize(100)
-                     .bufferSize(4096)
-                     .open(is)) {
-
+        List<String> barcodes = new ArrayList<>();
+        try (InputStream is = file.getInputStream(); Workbook workbook = new XSSFWorkbook(is)) {
             Sheet sheet = workbook.getSheetAt(0);
 
+            if (sheet.getPhysicalNumberOfRows() > maxRows) {
+                return null;
+            }
+
             for (Row row : sheet) {
-                Cell cell = row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-                if (cell != null) {
-                    String barcode = switch (cell.getCellType()) {
-                        case STRING -> cell.getStringCellValue().trim();
-                        case NUMERIC -> String.valueOf((long) cell.getNumericCellValue());
-                        default -> null;
-                    };
-                    if (barcode != null && !barcode.isEmpty()) {
-                        barcodes.add(barcode);
+                if (row == null) continue;
+                Cell firstCell = row.getCell(0);
+
+                if (firstCell != null && firstCell.getCellType() != CellType.BLANK) {
+                    String code = "";
+                    if (firstCell.getCellType() == CellType.STRING) {
+                        code = firstCell.getStringCellValue().trim();
+                    } else if (firstCell.getCellType() == CellType.NUMERIC) {
+                        code = String.valueOf((long) firstCell.getNumericCellValue());
+                    }
+
+                    // НОВА ПЕРЕВІРКА: додаємо, тільки якщо складається з цифр
+                    if (!code.isEmpty() && code.matches("\\d+")) {
+                        barcodes.add(code);
                     }
                 }
-
-                if (barcodes.size() >= maxRows) break;
             }
         }
-
         return barcodes;
+    }
+
+    // метод для отримання перших N застарілих штрих-кодів
+    public List<Barcode> findTopOutdatedBarcodes(int limit) {
+        LocalDateTime oneYearAgo = LocalDateTime.now().minusYears(1);
+        // Сортуємо за датою створення
+        Pageable pageable = PageRequest.of(0, limit, Sort.by("creationDate").ascending());
+        // Використовуємо новий метод репозиторію
+        return barcodeRepository.findByCreationDateBeforeAndStatusNot(oneYearAgo, "out", pageable).getContent();
+    }
+
+    // метод для отримання ВСІХ застарілих штрих-кодів для експорту
+    public List<Barcode> findAllOutdatedBarcodes() {
+        LocalDateTime oneYearAgo = LocalDateTime.now().minusYears(1);
+        // Використовуємо новий метод репозиторію
+        return barcodeRepository.findByCreationDateBeforeAndStatusNot(oneYearAgo, "out");
     }
 
     // =====================
@@ -233,6 +289,112 @@ public class BarcodeService {
         return barcodeRepository.findAllByStatus(status, pageable);
     }
 
+    // Новий метод для збору статистики
+    public DashboardStatsDto getDashboardStats() {
+        long totalInDb = barcodeRepository.countByStatusNot("out");
+        long totalAdded = barcodeRepository.count();
+        long totalDiscarded = barcodeRepository.countByStatus("out");
 
+        // Найпопулярніша локація
+        Page<String> topLocations = barcodeRepository.findTopLocation(PageRequest.of(0, 1));
+        String mostPopularLocation = topLocations.hasContent() ? topLocations.getContent().get(0) : "Немає";
+
+        // Кількість в останньому імпорті
+        long lastImportCount = importBatchRepository.findTopByOrderByIdDesc()
+                .map(ImportBatch::getId)
+                .map(barcodeRepository::countByImportBatchId)
+                .orElse(0L);
+
+        return new DashboardStatsDto(totalInDb, totalAdded, totalDiscarded, mostPopularLocation, lastImportCount);
+    }
+
+    // НОВІ МЕТОДИ ДЛЯ ГРАФІКІВ:
+
+    public ChartDataDto getMonthlyAddedStats() {
+        LocalDateTime startDate = LocalDateTime.now().minusYears(1).withDayOfMonth(1); // Дані за останній рік
+        List<MonthlyStatDto> stats = barcodeRepository.getMonthlyAddedStats(startDate);
+        return formatChartData(stats, startDate);
+    }
+
+    public ChartDataDto getMonthlyDiscardStats() {
+        LocalDateTime startDate = LocalDateTime.now().minusYears(1).withDayOfMonth(1); // Дані за останній рік
+        List<MonthlyStatDto> stats = statusHistoryRepository.getMonthlyDiscardStats(startDate);
+        return formatChartData(stats, startDate);
+    }
+
+    // Допоміжний метод для форматування даних для Chart.js
+    private ChartDataDto formatChartData(List<MonthlyStatDto> stats, LocalDateTime startDate) {
+        List<String> labels = new ArrayList<>();
+        List<Long> data = new ArrayList<>();
+
+        // Створюємо мапу для швидкого доступу до статистики
+        Map<String, Long> statsMap = stats.stream()
+                .collect(Collectors.toMap(
+                        s -> s.getYear() + "-" + s.getMonth(),
+                        MonthlyStatDto::getCount
+                ));
+
+        LocalDateTime end = LocalDateTime.now().withDayOfMonth(1);
+        LocalDateTime current = startDate;
+
+        // Встановлюємо українську локаль для назв місяців
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM yyyy", new Locale("uk"));
+
+        // Проходимо по місяцях від start до end
+        while (!current.isAfter(end)) {
+            labels.add(current.format(formatter));
+            String key = current.getYear() + "-" + current.getMonthValue();
+            data.add(statsMap.getOrDefault(key, 0L));
+            current = current.plusMonths(1);
+        }
+
+        return new ChartDataDto(labels, data);
+    }
+
+    public Page<Barcode> findWarehouseView(String rack, String bay, Pageable pageable) {
+        // Завжди починаємо з базової умови: не списані
+        Specification<Barcode> spec = Specification.where(BarcodeSpecification.isNotStatus("out"));
+
+        // Додаємо фільтри, лише якщо вони надані
+        if (rack != null && !rack.isBlank()) {
+            spec = spec.and(BarcodeSpecification.hasRack(rack));
+        }
+        if (bay != null && !bay.isBlank()) {
+            spec = spec.and(BarcodeSpecification.hasBay(bay));
+        }
+
+        // findAll(Specification, Pageable) - це магія JpaSpecificationExecutor
+        return barcodeRepository.findAll(spec, pageable);
+    }
+
+    /**
+     * НОВИЙ МЕТОД:
+     * Отримує згруповану Map для "Пошуку матеріалу" (View 1)
+     */
+    public Map<LocationDTO, List<Barcode>> findMaterialByApnGroupedByLocation(String apn) {
+        // Використовуємо новий метод репозиторію, який вже сортує
+        List<Barcode> barcodes = barcodeRepository.findByApnAndStatusNotOrderByRackAscBayAsc(apn, "out");
+
+        // Групуємо результати.
+        // Використовуємо LinkedHashMap, щоб зберегти порядок сортування (Rack A, Rack B...)
+        return barcodes.stream()
+                .collect(Collectors.groupingBy(
+                        barcode -> new LocationDTO(barcode.getRack(), barcode.getBay()), // Ключ = наша DTO
+                        LinkedHashMap::new, // <-- Важливо!
+                        Collectors.toList()  // Значення = список штрих-кодів
+                ));
+    }
+
+    /**
+     * НОВІ МЕТОДИ:
+     * Для заповнення випадаючих списків фільтрів.
+     */
+    public List<String> getAllRacks() {
+        return barcodeRepository.findDistinctRacks();
+    }
+
+    public List<String> getAllBays() {
+        return barcodeRepository.findDistinctBays();
+    }
 
 }

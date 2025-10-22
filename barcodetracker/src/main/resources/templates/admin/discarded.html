@@ -2,11 +2,10 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Списані штрих-коди</title>
+    <title>Списані Штрих Коди</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/style.css"> <!-- Підключення власного CSS -->
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/css/style.css"> <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 
 <style>
@@ -27,97 +26,116 @@
 
     <div class="logo-title-container mb-4">
         <img src="/images/logo.png" alt="Логотип" width="100" height="100">
-        <h1 class="text-primary m-0">BCT - Списані штрих-коди (Out)</h1>
+        <h1 class="text-success m-0">BCT - Списані Штрих Коди (Out)</h1>
     </div>
 
-    <!-- Форма фільтрації по даті , APN -->
-    <div class="card-body">
-        <div class="mt-3">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+            <i class="bi bi-tools me-2"></i>Фільтри
+        </div>
+        <div class="card-body">
+            <div class="row g-3 justify-content-between align-items-center">
 
-            <!-- Фільтр по даті -->
-            <form th:action="@{/discarded}" method="get" class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-                <label for="filterDateOnly" class="form-label mb-0">Фільтрувати по даті:</label>
-                <input type="date" id="filterDateOnly" class="form-control w-auto" name="date"
-                       th:value="${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}">
-                <button type="submit" class="btn btn-success">🔍 Пошук</button>
-            </form>
+                <div class="col-lg-7 col-xl-6"> <form th:action="@{/discarded}" method="get">
+                    <div class="row g-2 align-items-end">
 
-            <!-- Фільтр по APN -->
-            <form method="get" th:action="@{/discarded}" class="d-flex align-items-center gap-2 flex-wrap">
-                <label for="apnInput" class="form-label mb-0">Фільтрувати по APN:</label>
-                <input type="date" class="form-control w-auto"
-                       name="date"
-                       th:value="${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd')}">
+                        <div class="col-sm">
+                            <label for="filterDate" class="form-label mb-0">Фільтрувати по даті:</label>
+                            <input type="date" id="filterDate" class="form-control" name="date"
+                                   th:value="${date != null ? #temporals.format(date, 'yyyy-MM-dd') : ''}">
+                        </div>
 
-                <input type="text" class="form-control w-auto"
-                       id="apnInput" name="apn"
-                       placeholder="Введіть APN..." th:value="${param.apn}"/>
+                        <div class="col-sm">
+                            <label for="apnInput" class="form-label mb-0">Фільтрувати по APN:</label>
+                            <input type="text" class="form-control"
+                                   id="apnInput" name="apn"
+                                   placeholder="Введіть APN..." th:value="${apn}">
+                        </div>
 
-                <button type="submit" class="btn btn-success">🔍 Пошук</button>
-            </form>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-success ms-2"><i class="bi bi-search"></i></button>
+                        </div>
 
+                        <div class="col-auto">
+                            <a th:href="@{/discarded}" class="btn btn-secondary"><i class="bi bi-x-lg"></i></a>
+                        </div>
+                    </div>
+                </form>
+                </div>
+
+                <div class="col-lg-5 col-xl-6 text-lg-end mt-3 mt-lg-0">
+                    <a th:href="@{/dashboard}" class="btn btn-success ms-2">
+                        <i class="bi bi-house-door me-1"></i>На головну
+                    </a>
+
+                    <a th:href="@{/discarded/export(
+                           'apn'=${apn != null && !apn.isEmpty() ? apn : null},
+                           'date'=${date != null ? #temporals.format(date, 'yyyy-MM-dd') : null}
+                       )}"
+                       class="btn btn-success ms-2"
+                       th:classappend="${#lists.isEmpty(discardedBarcodes)} ? 'disabled' : ''">
+                        <i class="bi bi-download me-1"></i> Завантажити (Excel)
+                    </a>
+                </div>
+
+            </div>
         </div>
     </div>
 
-    <div class="text-center mt-3">
-        <div class="d-flex justify-content-center gap-3 flex-wrap">
-            <a th:href="@{/dashboard}" class="btn btn-primary">Вернутись на головну сторінку</a>
-            <a class="btn btn-success"
-               th:href="@{/discarded/export(apn=${apn}, date=${#dates.format(date, 'yyyy-MM-dd')})}"
-               th:classappend="${#lists.isEmpty(discardedBarcodes)} ? 'disabled' : ''"
-               th:attr="aria-disabled=${#lists.isEmpty(discardedBarcodes)}, tabindex=${#lists.isEmpty(discardedBarcodes) ? '-1' : '0'}">
-                Скачати (Excel)
-            </a>
+    <div class="card shadow-sm">
+        <div class="card-body p-0"> <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover m-0 text-center align-middle">
+                <thead class="table-success">
+                <tr>
+                    <th>Штрих Код</th>
+                    <th>APN</th>
+                    <th>Кількість</th>
+                    <th>Локація</th>
+                    <th>Статус</th>
+                    <th>Дата Списання</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="barcode : ${discardedBarcodes}">
+                    <td>
+                        <span th:text="${barcode.code}">123456</span>
+                        <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-2 text-decoration-none text-success" title="Деталі">
+                            <i class="bi bi-info-circle"></i>
+                        </a>
+                    </td>
+                    <td th:text="${barcode.apn}">APN</td>
+                    <td th:text="${barcode.quantity}">1</td>
+                    <td th:text="${barcode.location}">excess sk</td>
+                    <td th:text="${barcode.status}">out</td>
+                    <td th:text="${#temporals.format(barcode.lastUpdated, 'dd.MM.yyyy')}">10.06.2025</td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(discardedBarcodes)}">
+                    <td colspan="6" class="text-center text-muted p-4">
+                        За вашим запитом Штрих Кодів не знайдено.
+                    </td>
+                </tr>
+                </tbody>
+            </table>
         </div>
-    </div><br>
+    </div>
 
-    <!-- Таблиця штрих-кодів -->
-    <table class="text-center table table-bordered table-striped">
-        <thead class="table-success">
-        <tr>
-            <th>Штрих код</th>
-            <th>APN</th>
-            <th>Кількість</th>
-            <th>Локація</th>
-            <th>Статус</th>
-            <th>Дата зміни</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:each="barcode : ${discardedBarcodes}">
-            <td>
-                <span th:text="${barcode.code}">123456</span>
-                <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-2 text-decoration-none text-primary" title="Деталі">
-                    <i class="bi bi-info-circle"></i>
-                </a>
-            </td>
-            <td th:text="${barcode.apn}">APN</td>
-            <td th:text="${barcode.quantity}">1</td>
-            <td th:text="${barcode.location}">excess sk</td>
-            <td th:text="${barcode.status}">out</td>
-            <td th:text="${#temporals.format(barcode.lastUpdated, 'yyyy-MM-dd HH:mm')}">2025-06-10</td>
-        </tr>
-        <tr th:if="${#lists.isEmpty(discardedBarcodes)}">
-            <td colspan="7" class="text-center text-muted">Немає списаних штрих кодів</td>
-        </tr>
-        </tbody>
-    </table>
+    <br>
     <nav th:if="${totalPages > 1}">
         <ul class="pagination justify-content-center">
             <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
-                <a class="page-link" th:href="@{/discarded(page=0, apn=${apn}, date=${date})}">Перша</a>
+                <a class="page-link green" th:href="@{/discarded(page=0, apn=${apn}, date=${date != null ? #temporals.format(date, 'yyyy-MM-dd') : ''})}">Перша</a>
             </li>
             <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
-                <a class="page-link" th:href="@{/discarded(page=${currentPage - 1}, apn=${apn}, date=${date})}">← Попередня</a>
+                <a class="page-link green" th:href="@{/discarded(page=${currentPage - 1}, apn=${apn}, date=${date != null ? #temporals.format(date, 'yyyy-MM-dd') : ''})}">← Попередня</a>
             </li>
             <li class="page-item disabled">
                 <span class="page-link">Сторінка <span th:text="${currentPage + 1}"></span> з <span th:text="${totalPages}"></span></span>
             </li>
             <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
-                <a class="page-link" th:href="@{/discarded(page=${currentPage + 1}, apn=${apn}, date=${date})}">Наступна →</a>
+                <a class="page-link green" th:href="@{/discarded(page=${currentPage + 1}, apn=${apn}, date=${date != null ? #temporals.format(date, 'yyyy-MM-dd') : ''})}">Наступна →</a>
             </li>
             <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
-                <a class="page-link" th:href="@{/discarded(page=${totalPages - 1}, apn=${apn}, date=${date})}">Остання</a>
+                <a class="page-link green" th:href="@{/discarded(page=${totalPages - 1}, apn=${apn}, date=${date != null ? #temporals.format(date, 'yyyy-MM-dd') : ''})}">Остання</a>
             </li>
         </ul>
     </nav>

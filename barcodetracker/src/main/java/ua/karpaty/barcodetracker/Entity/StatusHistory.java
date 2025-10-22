@@ -22,6 +22,13 @@ public class StatusHistory {
     private String newStatus;
     private LocalDateTime changeTime;
 
+    public StatusHistory(Barcode barcode, String oldStatus, String newStatus, LocalDateTime changeTime) {
+        this.barcode = barcode;
+        this.oldStatus = oldStatus;
+        this.newStatus = newStatus;
+        this.changeTime = changeTime;
+    }
+
     @ManyToOne
     @JoinColumn(name = "barcode_id")
     private Barcode barcode;

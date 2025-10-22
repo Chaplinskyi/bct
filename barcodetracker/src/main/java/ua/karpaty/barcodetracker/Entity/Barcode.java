@@ -24,6 +24,10 @@ public class Barcode {
     private String location; // SK, ST, SV, D, SR, BULKY, NARIZKA (розшифрувати в UI)
     private String status;   // stock, out
 
+    private String rack;  // Наприклад, "A", "B"
+    private String bay;   // Наприклад, "1", "2"
+
+    private LocalDateTime creationDate;
     private LocalDateTime lastUpdated;
 
     @Transient
@@ -36,6 +40,10 @@ public class Barcode {
     public void setParsedDate(LocalDateTime parsedDate) {
         this.parsedDate = parsedDate;
     }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "import_batch_id")
+    private ImportBatch importBatch;
 
     @OneToMany(mappedBy = "barcode", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<LocationHistory> locationHistories;
@@ -105,6 +113,14 @@ public class Barcode {
 
     public void setLocationHistories(List<LocationHistory> locationHistories) {
         this.locationHistories = locationHistories;
+    }
+
+    public LocalDateTime getCreationDate() {
+        return creationDate;
+    }
+
+    public void setCreationDate(LocalDateTime creationDate) {
+        this.creationDate = creationDate;
     }
 
     public List<StatusHistory> getStatusHistories() {
