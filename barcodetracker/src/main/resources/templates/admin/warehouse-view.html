@@ -4,22 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <title>BCT - Склад Матеріалів</title>
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/style.css"> <meta name="viewport" content="width=device-width, initial-scale=1">
-
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-        .page-link.green {
-            background-color: #D1E7DD;
-            color: #0A3622;
-            border-color: #A3D1B9;
-        }
-        .page-link.green:hover {
-            background-color: #B7D9C8;
-            color: #0A3622;
-            border-color: #A3D1B9;
-        }
+        .page-link.green { background-color: #D1E7DD; color: #0A3622; border-color: #A3D1B9; }
+        .page-link.green:hover { background-color: #B7D9C8; color: #0A3622; border-color: #A3D1B9; }
+        .table th { background-color: #eaf3eb; }
     </style>
 </head>
 
@@ -27,14 +19,13 @@
 <div class="container py-4">
 
     <div class="logo-title-container mb-4">
-        <img src="/images/logo.png" alt="Логотип" width="100" height="100">
+        <img th:src="@{/images/logo.png}" alt="Логотип" width="100" height="100">
         <h1 class="text-primary m-0">BCT - Склад Матеріалів</h1>
     </div>
 
     <div class="row g-4">
 
-        <div class="col-lg-4">
-
+        <div class="col-lg-4 order-lg-2">
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-success-subtle text-success-emphasis fs-5">
                     <i class="bi bi-filter-circle-fill me-2"></i>Фільтри складу
@@ -42,24 +33,31 @@
                 <div class="card-body">
                     <form th:action="@{/warehouse}" method="get" class="d-grid gap-3">
                         <div>
-                            <label for="apnInput" class="form-label fw-medium">Пошук по APN (Матеріалу)</label>
+                            <label for="apnInput" class="form-label fw-medium">Пошук по APN</label>
                             <input type="text" class="form-control" id="apnInput" name="apn"
                                    placeholder="Напр. M3130001" th:value="${apnQuery}">
                         </div>
+                        <hr>
                         <div>
                             <label for="rackSelect" class="form-label fw-medium">Стелаж</label>
                             <select class="form-select" id="rackSelect" name="rack">
                                 <option value="">Будь-який стелаж</option>
-                                <option value="Rack A" th:selected="${'Rack A' == rackQuery}">Стелаж A</option>
-                                <option value="Rack B" th:selected="${'Rack B' == rackQuery}">Стелаж B</option>
+                                <option th:each="r : ${allRacks}"
+                                        th:value="${r}"
+                                        th:text="${r}"
+                                        th:selected="${r == rackQuery}">
+                                </option>
                             </select>
                         </div>
                         <div>
                             <label for="baySelect" class="form-label fw-medium">Проліт</label>
                             <select class="form-select" id="baySelect" name="bay">
                                 <option value="">Будь-який проліт</option>
-                                <option value="Bay 1" th:selected="${'Bay 1' == bayQuery}">Проліт 1</option>
-                                <option value="Bay 2" th:selected="${'Bay 2' == bayQuery}">Проліт 2</option>
+                                <option th:each="b : ${allBays}"
+                                        th:value="${b}"
+                                        th:text="${b}"
+                                        th:selected="${b == bayQuery}">
+                                </option>
                             </select>
                         </div>
 
@@ -80,93 +78,49 @@
                     <i class="bi bi-compass-fill me-2"></i>Навігація
                 </div>
                 <div class="list-group list-group-flush">
-                    <a th:href="@{/dashboard}" class="list-group-item list-group-item-action d-flex align-items-center py-3">
-                        <i class="bi bi-house-door-fill me-3 fs-4 text-primary"></i>
-                        <span class="fs-6 fw-medium">На головну</span>
+                    <a th:href="@{/dashboard}" class="list-group-item list-group-item-action py-3">
+                        <i class="bi bi-house-door-fill me-3 fs-4 text-primary"></i>На головну
                     </a>
-                    <a th:href="@{/barcodes}" class="list-group-item list-group-item-action d-flex align-items-center py-3">
-                        <i class="bi bi-database me-3 fs-4 text-primary"></i>
-                        <span class="fs-6 fw-medium">Переглянути Базу Даних</span>
+                    <a th:href="@{/barcodes}" class="list-group-item list-group-item-action py-3">
+                        <i class="bi bi-database me-3 fs-4 text-primary"></i>Вся База Даних
                     </a>
                 </div>
             </div>
-
         </div>
 
-        <div class="col-lg-8">
+        <div class="col-lg-8 order-lg-1">
 
             <div th:if="${apnQuery != null and !apnQuery.isEmpty()}">
                 <div class="card shadow-sm mb-4">
                     <div class="card-header bg-primary-subtle text-primary-emphasis fs-5">
-                        <i class="bi bi-geo-alt-fill me-2"></i>
-                        Локації для APN: <span class="fw-bold" th:text="${apnQuery}">M3130001</span>
+                        <i class="bi bi-geo-alt-fill me-2"></i>Локації для APN: <span class="fw-bold" th:text="${apnQuery}"></span>
                     </div>
                     <div class="card-body">
-
                         <div th:if="${#lists.isEmpty(materialLocations)}" class="text-center p-4">
-                            <h4 class="text-muted">Матеріал з APN <b th:text="${apnQuery}"></b> не знайдено на складі.</h4>
+                            <h4 class="text-muted">Матеріал з APN <b th:text="${apnQuery}"></b> не знайдено.</h4>
                         </div>
-
                         <div class="accordion" id="locationAccordion" th:unless="${#lists.isEmpty(materialLocations)}">
-
-                            <div class="accordion-item">
-                                <h2 class="accordion-header" th:id="'heading' + 1">
-                                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                            th:data-bs-target="'#collapse' + 1" aria-expanded="true" th:aria-controls="'collapse' + 1">
-                                        <div class.py-4="d-flex justify-content-between w-100 pe-3">
-                                            <span>
-                                                <i class="bi bi-inboxes-fill text-success me-2"></i>
-                                                <strong>Стелаж: </strong> <span th:text="${entry.key.rack}">A</span> /
-                                                <strong>Проліт: </strong> <span th:text="${entry.key.bay}">1</span>
-                                            </span>
-                                                <span class.py-4="badge bg-primary rounded-pill"
-                                                   th:text="'Всього: ' + ${#aggregates.sum(entry.value.![quantity])} + ' шт.'">
-                                                Всього: 18000 шт.
-                                            </span>
-                                        </div>
-                                    </button>
-                                </h2>
-                                <div th:id="'collapse' + 1" class="accordion-collapse collapse show"
-                                     th:aria-labelledby="'heading' + 1" data-bs-parent="#locationAccordion">
-                                    <div class="accordion-body p-0">
-                                        <table class="table table-striped table-hover m-0 align-middle">
-                                            <thead>
-                                            <tr>
-                                                <th class="ps-3">Штрих Код</th>
-                                                <th>Кількість</th>
-                                                <th>Дата додавання</th>
-                                            </tr>
-                                            </thead>
-                                            <tbody>
-                                            <tr>
-                                                <td class="ps-3">123456789</td>
-                                                <td>18000</td>
-                                                <td>21.10.2025</td>
-                                            </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="accordion-item">
-                                <h2 class="accordion-header" th:id="'heading' + 2">
+                            <div class="accordion-item" th:each="entry, iter : ${materialLocations}">
+                                <h2 class="accordion-header" th:id="'heading' + ${iter.index}">
                                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                            th:data-bs-target="'#collapse' + 2" aria-expanded="false" th:aria-controls="'collapse' + 2">
+                                            th:data-bs-target="'#collapse' + ${iter.index}" aria-expanded="false"
+                                            th:aria-controls="'collapse' + ${iter.index}">
                                         <div class="d-flex justify-content-between w-100 pe-3">
                                             <span>
                                                 <i class="bi bi-inboxes-fill text-success me-2"></i>
-                                                <strong>Стелаж: B</strong> / <strong>Проліт: 4</strong>
+                                                <strong th:text="${entry.key.rack}"></strong>
+                                                <span th:if="${entry.key.bay != null and !entry.key.bay.isEmpty()}"
+                                                      th:text="' / Проліт: ' + ${entry.key.bay}"></span>
                                             </span>
-                                            <span class="badge bg-primary rounded-pill">
-                                                Всього: 36000 шт.
-                                            </span>
+                                            <span class="badge bg-primary rounded-pill"
+                                                  th:text="${#aggregates.sum(entry.value.![quantity])} + ' шт.'"></span>
                                         </div>
                                     </button>
                                 </h2>
-                                <div th:id="'collapse' + 2" class="accordion-collapse collapse"
-                                     th:aria-labelledby="'heading' + 2" data-bs-parent="#locationAccordion">
+                                <div th:id="'collapse' + ${iter.index}" class="accordion-collapse collapse"
+                                     th:aria-labelledby="'heading' + ${iter.index}" data-bs-parent="#locationAccordion">
                                     <div class="accordion-body p-0">
-                                        <table class="table table-striped table-hover m-0 align-middle">
+                                        <table class="table table-striped table-hover m-0 align-middle small">
                                             <thead>
                                             <tr>
                                                 <th class="ps-3">Штрих Код</th>
@@ -175,22 +129,16 @@
                                             </tr>
                                             </thead>
                                             <tbody>
-                                            <tr>
-                                                <td class="ps-3">987654321</td>
-                                                <td>18000</td>
-                                                <td>15.09.2025</td>
-                                            </tr>
-                                            <tr>
-                                                <td class="ps-3">987654322</td>
-                                                <td>18000</td>
-                                                <td>15.09.2025</td>
+                                            <tr th:each="barcode : ${entry.value}">
+                                                <td class.ps-3="ps-3" th:text="${barcode.code}"></td>
+                                                <td th:text="${barcode.quantity}"></td>
+                                                <td th:text="${#temporals.format(barcode.creationDate, 'dd.MM.yy')}"></td>
                                             </tr>
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
                 </div>
@@ -198,59 +146,44 @@
 
             <div th:unless="${apnQuery != null and !apnQuery.isEmpty()}">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-success-subtle text-success-emphasis fs-5">
-                        <i class="bi bi-table me-2"></i>
-                        <span th:if="${rackQuery != null and !rackQuery.isEmpty()}" th:text="'Огляд: Стелаж ' + ${rackQuery}"></span>
-                        <span th:if="${rackQuery == null or rackQuery.isEmpty()}">Огляд: Увесь склад</span>
+                    <div class="card-header bg-success-subtle text-success-emphasis fs-5 d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-table me-2"></i>
+                            <span th:if="${rackQuery != null and !rackQuery.isEmpty()}" th:text="'Огляд: Стелаж ' + ${rackQuery}"></span>
+                            <span th:if="${bayQuery != null and !bayQuery.isEmpty()}" th:text="'Огляд: Проліт ' + ${bayQuery}"></span>
+                            <span th:if="${(rackQuery == null or rackQuery.isEmpty()) and (bayQuery == null or bayQuery.isEmpty())}">Огляд: Увесь склад</span>
+                        </span>
+                        <span class="badge bg-secondary rounded-pill" th:text="${warehousePage.totalElements} + ' записів'"></span>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-bordered table-striped table-hover m-0 text-center align-middle">
-                                <thead class="table-success-subtle">
+                            <table class="table table-striped table-hover m-0 text-center align-middle small">
+                                <thead>
                                 <tr>
                                     <th>№</th>
-                                    <th>Стелаж</th>
-                                    <th>Проліт</th>
+                                    <th>Локація</th>
                                     <th>APN</th>
                                     <th>Штрих Код</th>
-                                    <th>Кількість</th>
-                                    <th>Дата додавання</th>
+                                    <th>К-сть</th>
+                                    <th>Дата доб.</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr>
-                                    <td>1</td>
-                                    <td>A</td>
-                                    <td>1</td>
-                                    <td>M3130001</td>
+                                <tr th:each="barcode, iterStat : ${warehousePage.content}">
+                                    <td th:text="${(currentPage * pageSize) + iterStat.count}"></td>
+                                    <td th:text="${barcode.location}"></td>
+                                    <td th:text="${barcode.apn}"></td>
                                     <td>
-                                        <span>123456789</span>
-                                        <a th:href="@{'/barcodes/' + 1}" class="ms-2 text-decoration-none text-primary" title="Деталі">
+                                        <span th:text="${barcode.code}"></span>
+                                        <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-1 text-decoration-none text-primary" title="Деталі">
                                             <i class="bi bi-info-circle"></i>
                                         </a>
                                     </td>
-                                    <td>18000</td>
-                                    <td>21.10.2025</td>
+                                    <td th:text="${barcode.quantity}"></td>
+                                    <td th:text="${#temporals.format(barcode.creationDate, 'dd.MM.yy')}"></td>
                                 </tr>
-                                <tr>
-                                    <td>2</td>
-                                    <td>B</td>
-                                    <td>4</td>
-                                    <td>M3130001</td>
-                                    <td>
-                                        <span>987654321</span>
-                                        <a th:href="@{'/barcodes/' + 2}" class="ms-2 text-decoration-none text-primary" title="Деталі">
-                                            <i class="bi bi-info-circle"></i>
-                                        </a>
-                                    </td>
-                                    <td>18000</td>
-                                    <td>15.09.2025</td>
-                                </tr>
-
-                                <tr th:if="false">
-                                    <td colspan="7" class="text-center text-muted p-4">
-                                        За вашим запитом нічого не знайдено.
-                                    </td>
+                                <tr th:if="${warehousePage.empty}">
+                                    <td colspan="6" class="text-center text-muted p-4">Нічого не знайдено.</td>
                                 </tr>
                                 </tbody>
                             </table>
@@ -258,31 +191,25 @@
                     </div>
                 </div>
 
-                <nav th:if="${true}" class="mt-4"> <ul class="pagination justify-content-center">
-                    <li class="page-item disabled">
-                        <a class="page-link green" href="#">Перша</a>
-                    </li>
-                    <li class="page-item disabled">
-                        <a class="page-link green" href="#">←</a>
-                    </li>
-
-                    <li class="page-item disabled">
-                        <span class="page-link text-dark">Сторінка 1 з 1</span>
-                    </li>
-
-                    <li class="page-item disabled">
-                        <a class="page-link green" href="#">→</a>
-                    </li>
-                    <li class="page-item disabled">
-                        <a class="page-link green" href="#">Остання</a>
-                    </li>
-                </ul>
+                <nav th:if="${totalPages > 1}" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                            <a class="page-link green" th:href="@{/warehouse(page=0, rack=${rackQuery}, bay=${bayQuery})}">Перша</a>
+                        </li>
+                        <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                            <a class="page-link green" th:href="@{/warehouse(page=${currentPage - 1}, rack=${rackQuery}, bay=${bayQuery})}">←</a>
+                        </li>
+                        <li class="page-item disabled"><span class="page-link text-dark" th:text="'Стор. ' + (${currentPage} + 1) + ' з ' + ${totalPages}"></span></li>
+                        <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
+                            <a class="page-link green" th:href="@{/warehouse(page=${currentPage + 1}, rack=${rackQuery}, bay=${bayQuery})}">→</a>
+                        </li>
+                        <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
+                            <a class="page-link green" th:href="@{/warehouse(page=${totalPages - 1}, rack=${rackQuery}, bay=${bayQuery})}">Остання</a>
+                        </li>
+                    </ul>
                 </nav>
-
             </div>
-
         </div>
-
     </div>
 </div>
 

@@ -23,18 +23,21 @@ public interface BarcodeRepository extends JpaRepository<Barcode, String>, JpaSp
 
     // Повертає LIST для експорту
     List<Barcode> findByStatusOrderByLastUpdatedDesc(String status);
+
     // Повертає PAGE для пагінації
     Page<Barcode> findByStatusOrderByLastUpdatedDesc(String status, Pageable pageable);
 
     // Повертає LIST для експорту
     List<Barcode> findByStatusAndLastUpdatedBetweenOrderByLastUpdatedDesc(
             String status, LocalDateTime start, LocalDateTime end);
+
     // Повертає PAGE для пагінації
     Page<Barcode> findByStatusAndLastUpdatedBetweenOrderByLastUpdatedDesc(
             String status, LocalDateTime start, LocalDateTime end, Pageable pageable);
 
     @Query("""
-        SELECT b FROM Barcode b
+
+            SELECT b FROM Barcode b
         WHERE b.status = :status
           AND b.lastUpdated BETWEEN :from AND :to
           AND b.apn = :apn
@@ -122,5 +125,40 @@ public interface BarcodeRepository extends JpaRepository<Barcode, String>, JpaSp
 
     // 4. Новий метод для пошуку за APN (для режиму акордеону)
     // Ми сортуємо тут, щоб LinkedHashMap зберіг порядок
-    List<Barcode> findByApnAndStatusNotOrderByRackAscBayAsc(String apn, String status);
-}
+    // ВИПРАВЛЕНО: сортуємо за реальним полем 'location'
+    List<Barcode> findByApnAndStatusNotOrderByLocationAsc(String apn, String status);
+
+    // 1. Немає фільтрів (тільки статус 'out' виключено)
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' ORDER BY b.location ASC")
+    Page<Barcode> findWarehouseViewAll(Pageable pageable);
+
+    // 2. Лише фільтр Стелажа (rack)
+    // Використовуємо lower() та trim() для надійності
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND lower(trim(b.location)) LIKE lower(concat(trim(:rack), '%')) ORDER BY b.location ASC")
+    Page<Barcode> findWarehouseViewByRack(@Param("rack") String rack, Pageable pageable);
+
+    // 3. Лише фільтр Прольоту (bay)
+    // Використовуємо lower() та trim()
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND lower(trim(b.location)) LIKE lower(concat('%', trim(:bay))) ORDER BY b.location ASC")
+    Page<Barcode> findWarehouseViewByBay(@Param("bay") String bay, Pageable pageable);
+
+    // 4. Фільтри Стелажа (rack) та Прольоту (bay)
+    // Використовуємо lower() та trim()
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND lower(trim(b.location)) = lower(concat(trim(:rack), trim(:bay))) ORDER BY b.location ASC")
+    Page<Barcode> findWarehouseViewByRackAndBay(@Param("rack") String rack, @Param("bay") String bay, Pageable pageable);
+
+    // --- Метод для warehouse-view (Пошук за APN) ---
+    // (Цей метод залишається без змін)
+    @Query("SELECT b FROM Barcode b WHERE lower(b.apn) = lower(:apn) AND lower(b.status) <> 'out' ORDER BY b.location ASC")
+    List<Barcode> findByApnAndStatusNotOrderByLocationAsc(@Param("apn") String apn);
+
+    // --- Методи для warehouse-view (Огляд Складу) ---
+
+    // 2. Лише фільтр Стелажа (LIKE) - для SK, ST...
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND lower(trim(b.location)) LIKE lower(concat(trim(:rack), '%')) ORDER BY b.location ASC")
+    Page<Barcode> findWarehouseViewByRackLike(@Param("rack") String rack, Pageable pageable);
+
+    // 3. Лише фільтр Стелажа (EXACT) - для prestock, Tape...
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND lower(trim(b.location)) = lower(trim(:rack)) ORDER BY b.location ASC")
+    Page<Barcode> findWarehouseViewByRackExact(@Param("rack") String rack, Pageable pageable);
+    }

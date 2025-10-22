@@ -21,7 +21,7 @@ import ua.karpaty.barcodetracker.Repository.LocationHistoryRepository;
 import ua.karpaty.barcodetracker.Repository.StatusHistoryRepository;
 import ua.karpaty.barcodetracker.Service.BarcodeService;
 import ua.karpaty.barcodetracker.Service.ExcelService;
-
+import java.util.Optional;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -29,12 +29,9 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.springframework.beans.support.PagedListHolder.DEFAULT_PAGE_SIZE;
 
 @Controller
 @RequestMapping("/")
@@ -75,42 +72,37 @@ public class AdminController {
             @RequestParam(defaultValue = "0") int page,
             Model model) {
 
-        // Додаємо фільтри у модель, щоб вони залишалися у полях вводу
+        // Додаємо фільтри у модель
         model.addAttribute("apnQuery", apn);
         model.addAttribute("rackQuery", rack);
         model.addAttribute("bayQuery", bay);
 
+        // --- НОВИЙ КОД ---
         // Додаємо списки для випадаючих меню (dropdowns)
         model.addAttribute("allRacks", barcodeService.getAllRacks());
         model.addAttribute("allBays", barcodeService.getAllBays());
+        // --- КІНЕЦЬ НОВОГО КОДУ ---
 
-        // ===============================================
-        // ==     ДИНАМІЧНА ЛОГІКА ДВОХ РЕЖИМІВ         ==
-        // ===============================================
+        int pageSize = 50;
 
         if (apn != null && !apn.isBlank()) {
-            // --- РЕЖИМ 1: Пошук за APN (Акордеон) ---
+            // Режим 1: Пошук за APN
             Map<LocationDTO, List<Barcode>> materialLocations =
                     barcodeService.findMaterialByApnGroupedByLocation(apn);
-
             model.addAttribute("materialLocations", materialLocations);
-            // Передаємо порожню сторінку, щоб 'th:unless' для таблиці спрацював
             model.addAttribute("warehousePage", Page.empty());
         } else {
-            // --- РЕЖИМ 2: Огляд складу (Таблиця та пагінація) ---
-            // Сортування за замовчуванням (можете змінити)
-            Pageable pageable = PageRequest.of(page, DEFAULT_PAGE_SIZE, Sort.by("rack").ascending().and(Sort.by("bay")));
-
+            // Режим 2: Огляд складу
+            Pageable pageable = PageRequest.of(page, pageSize, Sort.by("location").ascending());
+            // Викликає оновлений метод сервісу
             Page<Barcode> warehousePage = barcodeService.findWarehouseView(rack, bay, pageable);
-
             model.addAttribute("warehousePage", warehousePage);
             model.addAttribute("totalPages", warehousePage.getTotalPages());
             model.addAttribute("currentPage", warehousePage.getNumber());
-            // Передаємо порожню Map, щоб 'th:if' для акордеону спрацював
+            model.addAttribute("pageSize", pageSize);
             model.addAttribute("materialLocations", Map.of());
         }
-
-        return "admin/warehouse-view"; // Повертаємо назву вашого HTML файлу
+        return "admin/warehouse-view";
     }
 
     @PostMapping("/upload-new")
@@ -215,24 +207,21 @@ public class AdminController {
     }
 
     @GetMapping("/barcodes/{id}")
-    public String viewBarcodeDetails(@PathVariable Long id, Model model, RedirectAttributes redirectAttributes) {
-        try {
-            Barcode barcode = barcodeService.findById(id);
-            List<LocationHistory> locationHistory = locationHistoryRepository.findByBarcodeIdOrderByChangeTimeDesc(id);
-            List<StatusHistory> statusHistory = statusHistoryRepository.findByBarcodeIdOrderByChangeTimeDesc(barcode.getId());
+    public String showBarcodeDetails(@PathVariable Long id, Model model) {
+        // Отримуємо Barcode (якщо findById не кидає виняток, інакше .orElseThrow)
+        Barcode barcode = barcodeService.findById(id)
+                .orElseThrow(() -> new BarcodeNotFoundException("Штрих-код не знайдено з ID: " + id));
 
-            model.addAttribute("barcode", barcode);
-            model.addAttribute("locationHistory", locationHistory);
-            model.addAttribute("statusHistory", statusHistory);
+        // ВИПРАВЛЕНО: Передаємо об'єкт barcode
+        List<LocationHistory> locationHistory = locationHistoryRepository.findByBarcodeOrderByChangeTimeDesc(barcode);
+        List<StatusHistory> statusHistory = statusHistoryRepository.findByBarcodeOrderByChangeTimeDesc(barcode);
 
-            // ОНОВЛЕНО: Передаємо мапу локацій в модель
-            model.addAttribute("locationMap", locationMap);
+        model.addAttribute("barcode", barcode);
+        model.addAttribute("locationHistory", locationHistory);
+        model.addAttribute("statusHistory", statusHistory);
+        model.addAttribute("locations", locationMap); // Передача локацій для форми
 
-            return "admin/barcode-details";
-        } catch (BarcodeNotFoundException e) {
-            redirectAttributes.addFlashAttribute("error", "Штрих-код з ID " + id + " не знайдено.");
-            return "redirect:/dashboard";
-        }
+        return "admin/barcode-details";
     }
 
     @GetMapping("/barcodes/search")

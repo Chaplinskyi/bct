@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import ua.karpaty.barcodetracker.Dto.MonthlyStatDto;
+import ua.karpaty.barcodetracker.Entity.Barcode;
 import ua.karpaty.barcodetracker.Entity.StatusHistory;
 
 import java.time.LocalDateTime;

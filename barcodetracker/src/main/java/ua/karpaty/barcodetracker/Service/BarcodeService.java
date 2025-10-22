@@ -25,14 +25,16 @@ import ua.karpaty.barcodetracker.Repository.BarcodeRepository;
 import ua.karpaty.barcodetracker.Repository.ImportBatchRepository;
 import ua.karpaty.barcodetracker.Repository.LocationHistoryRepository;
 import ua.karpaty.barcodetracker.Repository.StatusHistoryRepository;
-import ua.karpaty.barcodetracker.specification.BarcodeSpecification;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Service
@@ -42,15 +44,18 @@ public class BarcodeService {
     private final ImportBatchRepository importBatchRepository;
     private final LocationHistoryRepository locationHistoryRepository;
     private final StatusHistoryRepository statusHistoryRepository;
+    private final Map<String, Integer> locationMap;
+
 
     @Autowired
     public BarcodeService(BarcodeRepository barcodeRepository, ImportBatchRepository importBatchRepository,
                           LocationHistoryRepository locationHistoryRepository,
-                          StatusHistoryRepository statusHistoryRepository) {
+                          StatusHistoryRepository statusHistoryRepository, Map<String, Integer> locationMap) {
         this.barcodeRepository = barcodeRepository;
         this.importBatchRepository = importBatchRepository;
         this.locationHistoryRepository = locationHistoryRepository;
         this.statusHistoryRepository = statusHistoryRepository;
+        this.locationMap = locationMap;
     }
 
     public List<Barcode> findAll() {
@@ -351,50 +356,117 @@ public class BarcodeService {
         return new ChartDataDto(labels, data);
     }
 
+    /**
+     * ОНОВЛЕНО: Використовує існуючу специфікацію для фільтрації
+     */
     public Page<Barcode> findWarehouseView(String rack, String bay, Pageable pageable) {
-        // Завжди починаємо з базової умови: не списані
-        Specification<Barcode> spec = Specification.where(BarcodeSpecification.isNotStatus("out"));
+        String trimRack = (rack != null) ? rack.trim() : null;
+        String trimBay = (bay != null) ? bay.trim() : null;
+        boolean rackPresent = trimRack != null && !trimRack.isBlank();
+        boolean bayPresent = trimBay != null && !trimBay.isBlank();
 
-        // Додаємо фільтри, лише якщо вони надані
-        if (rack != null && !rack.isBlank()) {
-            spec = spec.and(BarcodeSpecification.hasRack(rack));
-        }
-        if (bay != null && !bay.isBlank()) {
-            spec = spec.and(BarcodeSpecification.hasBay(bay));
-        }
+        if (rackPresent && bayPresent) {
+            // 1. Фільтр по стелажу та прольоту
+            return barcodeRepository.findWarehouseViewByRackAndBay(trimRack, trimBay, pageable);
 
-        // findAll(Specification, Pageable) - це магія JpaSpecificationExecutor
-        return barcodeRepository.findAll(spec, pageable);
+        } else if (rackPresent) {
+            // 2. Фільтр лише по стелажу
+            // Отримуємо канонічний ключ (напр. "SK" або "prestock")
+            String canonicalRackKey = findCanonicalKey(trimRack, locationMap);
+            if (canonicalRackKey == null) {
+                return Page.empty(pageable); // Такого стелажа немає
+            }
+
+            // Перевіряємо, чи є у стелажа прольоти (0 = 'prestock', >0 = 'SK')
+            Integer bayCount = locationMap.getOrDefault(canonicalRackKey, 0);
+
+            if (bayCount == 0) {
+                // Стелаж без прольотів -> точний пошук (prestock, Tape)
+                return barcodeRepository.findWarehouseViewByRackExact(canonicalRackKey, pageable);
+            } else {
+                // Стелаж з прольотами -> пошук LIKE (SK, ST)
+                return barcodeRepository.findWarehouseViewByRackLike(canonicalRackKey, pageable);
+            }
+
+        } else if (bayPresent) {
+            // 3. Фільтр лише по прольоту
+            return barcodeRepository.findWarehouseViewByBay(trimBay, pageable);
+
+        } else {
+            // 4. Немає фільтрів
+            return barcodeRepository.findWarehouseViewAll(pageable);
+        }
     }
 
     /**
-     * НОВИЙ МЕТОД:
-     * Отримує згруповану Map для "Пошуку матеріалу" (View 1)
+     * ОНОВЛЕНО: Використовує DTO та нову parseLocationToDTO
      */
     public Map<LocationDTO, List<Barcode>> findMaterialByApnGroupedByLocation(String apn) {
-        // Використовуємо новий метод репозиторію, який вже сортує
-        List<Barcode> barcodes = barcodeRepository.findByApnAndStatusNotOrderByRackAscBayAsc(apn, "out");
+        List<Barcode> barcodes = barcodeRepository.findByApnAndStatusNotOrderByLocationAsc(apn.trim()); // Додано trim()
 
-        // Групуємо результати.
-        // Використовуємо LinkedHashMap, щоб зберегти порядок сортування (Rack A, Rack B...)
         return barcodes.stream()
                 .collect(Collectors.groupingBy(
-                        barcode -> new LocationDTO(barcode.getRack(), barcode.getBay()), // Ключ = наша DTO
-                        LinkedHashMap::new, // <-- Важливо!
-                        Collectors.toList()  // Значення = список штрих-кодів
+                        barcode -> parseLocationToDTO(barcode.getLocation()),
+                        LinkedHashMap::new,
+                        Collectors.toList()
                 ));
     }
 
-    /**
-     * НОВІ МЕТОДИ:
-     * Для заповнення випадаючих списків фільтрів.
-     */
-    public List<String> getAllRacks() {
-        return barcodeRepository.findDistinctRacks();
+    private LocationDTO parseLocationToDTO(String location) {
+        if (location == null || location.isBlank()) {
+            return new LocationDTO("N/A", "");
+        }
+        location = location.trim(); // Додано trim()
+
+        // Спробуємо знайти першу цифру
+        Matcher matcher = Pattern.compile("\\d").matcher(location);
+        if (matcher.find()) {
+            int index = matcher.start();
+            if (index > 0) { // Якщо є і букви, і цифри (напр. "SK12")
+                String rackPart = location.substring(0, index);
+                String bayPart = location.substring(index);
+                return new LocationDTO(rackPart, bayPart);
+            } else { // Якщо починається з цифри (не очікується, але про всяк випадок)
+                return new LocationDTO("", location); // Порожній rack
+            }
+        } else { // Якщо тільки букви (напр. "prestock")
+            return new LocationDTO(location, ""); // Порожній bay
+        }
     }
 
+    /**
+     * НОВИЙ МЕТОД: Отримує стелажі (Rack) з вашого @Bean locationMap
+     */
+    public List<String> getAllRacks() {
+        return new ArrayList<>(locationMap.keySet());
+    }
+
+    /**
+     * НОВИЙ МЕТОД: Отримує прольоти (Bay) з вашого @Bean locationMap
+     */
     public List<String> getAllBays() {
-        return barcodeRepository.findDistinctBays();
+        // 1. Знаходимо максимальну кількість прольотів (напр. 15)
+        int maxBay = locationMap.values().stream()
+                .max(Integer::compare)
+                .orElse(1); // (Якщо мапа порожня, буде 1)
+
+        // 2. Генеруємо список рядків від "1" до "15"
+        return IntStream.rangeClosed(1, maxBay)
+                .mapToObj(String::valueOf)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * НОВИЙ МЕТОД: Допоміжний метод для пошуку ключа в мапі без урахування регістру.
+     */
+    private String findCanonicalKey(String key, Map<String, Integer> map) {
+        if (key == null) return null;
+        for (String mapKey : map.keySet()) {
+            if (mapKey.equalsIgnoreCase(key)) {
+                return mapKey; // Повертає ключ з правильним регістром (напр. "SK")
+            }
+        }
+        return null; // Не знайдено
     }
 
 }
