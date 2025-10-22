@@ -67,7 +67,7 @@ public class BarcodeService {
     }
 
     public Barcode findById(Long id) {
-        return barcodeRepository.findById(String.valueOf(id))
+        return barcodeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Barcode not found with id: " + id));
     }
 
@@ -125,7 +125,7 @@ public class BarcodeService {
 
     @Transactional
     public void updateStatus(Long id, String newStatus) {
-        Barcode barcode = barcodeRepository.findById(String.valueOf(id))
+        Barcode barcode = barcodeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Barcode not found with ID: " + id));
 
         // Оновлюємо статус
@@ -268,8 +268,9 @@ public class BarcodeService {
         return h;
     }
 
+    @Transactional
     public void updateLocation(Long id, String fullLocation) {
-        Barcode barcode = barcodeRepository.findById(String.valueOf(id))
+        Barcode barcode = barcodeRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Barcode not found"));
 
         String oldLocation = barcode.getLocation();

@@ -209,17 +209,16 @@ public class AdminController {
     @GetMapping("/barcodes/{id}")
     public String showBarcodeDetails(@PathVariable Long id, Model model) {
         // Отримуємо Barcode (якщо findById не кидає виняток, інакше .orElseThrow)
-        Barcode barcode = barcodeService.findById(id)
-                .orElseThrow(() -> new BarcodeNotFoundException("Штрих-код не знайдено з ID: " + id));
+        Barcode barcode = barcodeService.findById(id);
 
         // ВИПРАВЛЕНО: Передаємо об'єкт barcode
-        List<LocationHistory> locationHistory = locationHistoryRepository.findByBarcodeOrderByChangeTimeDesc(barcode);
-        List<StatusHistory> statusHistory = statusHistoryRepository.findByBarcodeOrderByChangeTimeDesc(barcode);
+        List<LocationHistory> locationHistory = locationHistoryRepository.findByBarcodeIdOrderByChangeTimeDesc(barcode.getId());
+        List<StatusHistory> statusHistory = statusHistoryRepository.findByBarcodeIdOrderByChangeTimeDesc(barcode.getId());
 
         model.addAttribute("barcode", barcode);
         model.addAttribute("locationHistory", locationHistory);
         model.addAttribute("statusHistory", statusHistory);
-        model.addAttribute("locations", locationMap); // Передача локацій для форми
+        model.addAttribute("locationMap", locationMap); // Передача локацій для форми
 
         return "admin/barcode-details";
     }

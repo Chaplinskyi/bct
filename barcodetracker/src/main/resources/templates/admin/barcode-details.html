@@ -251,9 +251,20 @@
                 const location = locationSelect.value;
                 const number = numSelect.value;
 
-                moveLocationBtn.disabled = (isExcess === initialExcess &&
+                // Перевірка 1: Чи змінились значення порівняно з початковими?
+                const isSameAsInitial = (isExcess === initialExcess &&
                     location === initialLocation &&
                     number === initialNumber);
+
+                // Перевірка 2: Чи обрано стелаж, що вимагає номер, але номер не вказано?
+                const requiresNumber = (location !== "prestock" && locationMap[location] > 0); // Перевіряємо, чи стелаж має номери
+                const numberIsEmpty = (number === "");
+                const numberIsRequiredButMissing = requiresNumber && numberIsEmpty;
+
+                // Кнопка заблокована, якщо:
+                // - нічого не змінилося АБО
+                // - потрібен номер, але він не обраний
+                moveLocationBtn.disabled = isSameAsInitial || numberIsRequiredButMissing;
             }
 
             // Додаємо слухачів на ВСІ елементи форми

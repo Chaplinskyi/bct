@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 
 @Repository
-public interface BarcodeRepository extends JpaRepository<Barcode, String>, JpaSpecificationExecutor<Barcode> {
+public interface BarcodeRepository extends JpaRepository<Barcode, Long>, JpaSpecificationExecutor<Barcode> {
 
     Optional<Barcode> findByCode(String code);
 

@@ -20,7 +20,7 @@
 
     <div class="logo-title-container mb-4">
         <img th:src="@{/images/logo.png}" alt="Логотип" width="100" height="100">
-        <h1 class="text-primary m-0">BCT - Склад Матеріалів</h1>
+        <h1 class="text-success m-0">BCT - Склад Матеріалів</h1>
     </div>
 
     <div class="row g-4">
@@ -41,7 +41,7 @@
                         <div>
                             <label for="rackSelect" class="form-label fw-medium">Стелаж</label>
                             <select class="form-select" id="rackSelect" name="rack">
-                                <option value="">Будь-який стелаж</option>
+                                <option value=""> — </option>
                                 <option th:each="r : ${allRacks}"
                                         th:value="${r}"
                                         th:text="${r}"
@@ -52,7 +52,7 @@
                         <div>
                             <label for="baySelect" class="form-label fw-medium">Проліт</label>
                             <select class="form-select" id="baySelect" name="bay">
-                                <option value="">Будь-який проліт</option>
+                                <option value=""> — </option>
                                 <option th:each="b : ${allBays}"
                                         th:value="${b}"
                                         th:text="${b}"
@@ -62,7 +62,7 @@
                         </div>
 
                         <div class="d-grid gap-2 mt-2">
-                            <button type="submit" class="btn btn-primary w-100">
+                            <button type="submit" class="btn btn-success w-100">
                                 <i class="bi bi-search me-1"></i> Застосувати
                             </button>
                             <a th:href="@{/warehouse}" class="btn btn-secondary w-100">
@@ -79,10 +79,10 @@
                 </div>
                 <div class="list-group list-group-flush">
                     <a th:href="@{/dashboard}" class="list-group-item list-group-item-action py-3">
-                        <i class="bi bi-house-door-fill me-3 fs-4 text-primary"></i>На головну
+                        <i class="bi bi-house-door-fill me-3 fs-4 text-success"></i>На головну
                     </a>
                     <a th:href="@{/barcodes}" class="list-group-item list-group-item-action py-3">
-                        <i class="bi bi-database me-3 fs-4 text-primary"></i>Вся База Даних
+                        <i class="bi bi-database me-3 fs-4 text-success"></i>Вся База Даних
                     </a>
                 </div>
             </div>
@@ -112,7 +112,7 @@
                                                 <span th:if="${entry.key.bay != null and !entry.key.bay.isEmpty()}"
                                                       th:text="' / Проліт: ' + ${entry.key.bay}"></span>
                                             </span>
-                                            <span class="badge bg-primary rounded-pill"
+                                            <span class="badge bg-success rounded-pill"
                                                   th:text="${#aggregates.sum(entry.value.![quantity])} + ' шт.'"></span>
                                         </div>
                                     </button>
@@ -175,7 +175,7 @@
                                     <td th:text="${barcode.apn}"></td>
                                     <td>
                                         <span th:text="${barcode.code}"></span>
-                                        <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-1 text-decoration-none text-primary" title="Деталі">
+                                        <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-1 text-decoration-none text-success" title="Деталі">
                                             <i class="bi bi-info-circle"></i>
                                         </a>
                                     </td>
