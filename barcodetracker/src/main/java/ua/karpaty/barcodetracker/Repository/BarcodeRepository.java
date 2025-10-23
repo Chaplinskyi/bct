@@ -161,4 +161,43 @@ public interface BarcodeRepository extends JpaRepository<Barcode, Long>, JpaSpec
     // 3. Лише фільтр Стелажа (EXACT) - для prestock, Tape...
     @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND lower(trim(b.location)) = lower(trim(:rack)) ORDER BY b.location ASC")
     Page<Barcode> findWarehouseViewByRackExact(@Param("rack") String rack, Pageable pageable);
-    }
+
+    // ВИПАДОК 1: Тільки СТЕЛАЖ (rack) - шукає всі локації, що починаються з rack (з/без excess)
+    // Сортування за датою створення Asc
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND " +
+            "(lower(trim(b.location)) LIKE lower(concat(trim(:rack), ' %')) OR " +      // "SK %"
+            " lower(trim(b.location)) LIKE lower(concat('excess ', trim(:rack), ' %'))) " + // "excess SK %"
+            "AND lower(b.location) <> 'wires' " +
+            "ORDER BY b.creationDate ASC") // Сортування за датою зростанням
+    Page<Barcode> findByRackStartsWithOrderByCreationDateDesc(@Param("rack") String rack, Pageable pageable); // Змінено назву
+
+    // ВИПАДОК 1.1: Тільки СТЕЛАЖ (rack) БЕЗ ПРОЛЬОТІВ - точний пошук (prestock, Tape)
+    // Сортування за датою створення Asc
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND lower(trim(b.location)) = lower(trim(:rack)) " +
+            "AND lower(b.location) <> 'wires' " + // <-- Додати цю умову
+            "ORDER BY b.creationDate ASC") // Сортування за датою зростанням
+    Page<Barcode> findByRackExactOrderByCreationDateDesc(@Param("rack") String rack, Pageable pageable);
+
+    // ВИПАДОК 2: СТЕЛАЖ (rack) І ПРОЛІТ (bay) - точний пошук (з/без excess)
+    // Сортування за датою створення DESC
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND " +
+            "(lower(trim(b.location)) = lower(concat(trim(:rack), ' ', trim(:bay))) OR " +          // "SK 1"
+            " lower(trim(b.location)) = lower(concat('excess ', trim(:rack), ' ', trim(:bay)))) " + // "excess SK 1"
+            "AND lower(b.location) <> 'wires' " +
+            "ORDER BY b.creationDate ASC") // Сортування за датою спаданням
+    Page<Barcode> findByRackAndBayExactOrderByCreationDateDesc(@Param("rack") String rack, @Param("bay") String bay, Pageable pageable);
+
+    // ВИПАДОК 3: Тільки ПРОЛІТ (bay) - шукає локації, що закінчуються на " <bay>"
+    // Сортування за датою створення DESC
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' AND lower(trim(b.location)) LIKE lower(concat('% ', trim(:bay))) " +
+            "AND lower(b.location) <> 'wires' " + // <-- Додати цю умову
+            "ORDER BY b.creationDate ASC")
+    Page<Barcode> findByBayEndsWithOrderByCreationDateDesc(@Param("bay") String bay, Pageable pageable);
+
+    // ВИПАДОК 4: БЕЗ ФІЛЬТРІВ - всі активні, сортування за локацією ASC
+    @Query("SELECT b FROM Barcode b WHERE lower(b.status) <> 'out' " +
+            "AND lower(b.location) <> 'wires' " + // <-- Додати цю умову
+            "ORDER BY b.creationDate ASC")
+    Page<Barcode> findWarehouseViewAllOrderByLocationAsc(Pageable pageable);
+
+}

@@ -15,7 +15,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import ua.karpaty.barcodetracker.Dto.BarcodeTransferDto;
 import ua.karpaty.barcodetracker.Dto.LocationDTO;
 import ua.karpaty.barcodetracker.Entity.*;
-import ua.karpaty.barcodetracker.Exception.BarcodeNotFoundException;
 import ua.karpaty.barcodetracker.Repository.BarcodeRepository;
 import ua.karpaty.barcodetracker.Repository.LocationHistoryRepository;
 import ua.karpaty.barcodetracker.Repository.StatusHistoryRepository;
@@ -67,39 +66,54 @@ public class AdminController {
     @GetMapping("/warehouse")
     public String showWarehousePage(
             @RequestParam(required = false) String apn,
-            @RequestParam(required = false) String rack,
-            @RequestParam(required = false) String bay,
+            @RequestParam(required = false) String rack, // Початкові значення з запиту
+            @RequestParam(required = false) String bay,  // Початкові значення з запиту
             @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
             Model model) {
 
-        // Додаємо фільтри у модель
-        model.addAttribute("apnQuery", apn);
-        model.addAttribute("rackQuery", rack);
-        model.addAttribute("bayQuery", bay);
+        String currentApn = (apn != null && !apn.isBlank()) ? apn.trim() : null;
+        String currentRack = (rack != null && !rack.isBlank()) ? rack.trim() : null;
+        String currentBay = (bay != null && !bay.isBlank()) ? bay.trim() : null;
 
-        // --- НОВИЙ КОД ---
-        // Додаємо списки для випадаючих меню (dropdowns)
+        // --- НОВА ЛОГІКА ---
+        // Якщо виконується пошук за APN, скидаємо фільтри rack та bay
+        if (currentApn != null) {
+            currentRack = null; // Скидаємо стелаж
+            currentBay = null;  // Скидаємо проліт
+        }
+        // --- КІНЕЦЬ НОВОЇ ЛОГІКИ ---
+
+        // Додаємо ПОТОЧНІ значення фільтрів у модель
+        model.addAttribute("apnQuery", currentApn);
+        model.addAttribute("rackQuery", currentRack); // Використовуємо можливо скинуті значення
+        model.addAttribute("bayQuery", currentBay);   // Використовуємо можливо скинуті значення
+
+        // Додаємо списки для випадаючих меню
         model.addAttribute("allRacks", barcodeService.getAllRacks());
         model.addAttribute("allBays", barcodeService.getAllBays());
-        // --- КІНЕЦЬ НОВОГО КОДУ ---
+        model.addAttribute("locationMap", this.locationMap);
 
-        int pageSize = 50;
-
-        if (apn != null && !apn.isBlank()) {
+        if (currentApn != null) {
             // Режим 1: Пошук за APN
             Map<LocationDTO, List<Barcode>> materialLocations =
-                    barcodeService.findMaterialByApnGroupedByLocation(apn);
+                    barcodeService.findMaterialByApnGroupedByLocation(currentApn); // Використовуємо currentApn
             model.addAttribute("materialLocations", materialLocations);
             model.addAttribute("warehousePage", Page.empty());
+            model.addAttribute("totalPages", 0);
+            model.addAttribute("currentPage", 0);
+            model.addAttribute("pageSize", size);
+
         } else {
-            // Режим 2: Огляд складу
-            Pageable pageable = PageRequest.of(page, pageSize, Sort.by("location").ascending());
-            // Викликає оновлений метод сервісу
-            Page<Barcode> warehousePage = barcodeService.findWarehouseView(rack, bay, pageable);
+            // Режим 2: Огляд складу з фільтрами rack/bay (або без них)
+            Pageable pageable = PageRequest.of(page, size); // Сортування визначається в сервісі
+            // Передаємо можливо скинуті currentRack / currentBay
+            Page<Barcode> warehousePage = barcodeService.findWarehouseView(currentRack, currentBay, pageable);
+
             model.addAttribute("warehousePage", warehousePage);
             model.addAttribute("totalPages", warehousePage.getTotalPages());
             model.addAttribute("currentPage", warehousePage.getNumber());
-            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("pageSize", size);
             model.addAttribute("materialLocations", Map.of());
         }
         return "admin/warehouse-view";
@@ -626,5 +640,7 @@ public class AdminController {
 
         return "redirect:/upload-discarded";
     }
+
+
 
 }

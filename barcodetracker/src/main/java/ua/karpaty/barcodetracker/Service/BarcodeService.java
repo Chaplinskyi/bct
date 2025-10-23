@@ -366,36 +366,47 @@ public class BarcodeService {
         boolean rackPresent = trimRack != null && !trimRack.isBlank();
         boolean bayPresent = trimBay != null && !trimBay.isBlank();
 
+        // Створюємо Pageable для сортування за датою створення (спаданням)
+        Pageable dateSortPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("creationDate").descending());
+        // Створюємо Pageable для сортування за локацією (зростанням) - для випадку без фільтрів
+        Pageable locationSortPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("location").ascending());
+
+
         if (rackPresent && bayPresent) {
-            // 1. Фільтр по стелажу та прольоту
-            return barcodeRepository.findWarehouseViewByRackAndBay(trimRack, trimBay, pageable);
+            // ВИПАДОК 2: Фільтр за Стелажем та Прольотом (точний пошук)
+            log.info("Filtering warehouse view by EXACT rack '{}' and bay '{}', sorting by date.", trimRack, trimBay);
+            return barcodeRepository.findByRackAndBayExactOrderByCreationDateDesc(trimRack, trimBay, dateSortPageable);
 
         } else if (rackPresent) {
-            // 2. Фільтр лише по стелажу
-            // Отримуємо канонічний ключ (напр. "SK" або "prestock")
+            // ВИПАДОК 1: Фільтр ТІЛЬКИ за Стелажем
+            log.info("Filtering warehouse view by rack '{}' (starts with), sorting by date.", trimRack);
             String canonicalRackKey = findCanonicalKey(trimRack, locationMap);
             if (canonicalRackKey == null) {
+                log.warn("Canonical key not found for rack '{}'", trimRack);
                 return Page.empty(pageable); // Такого стелажа немає
             }
 
-            // Перевіряємо, чи є у стелажа прольоти (0 = 'prestock', >0 = 'SK')
-            Integer bayCount = locationMap.getOrDefault(canonicalRackKey, 0);
+            Integer bayCount = locationMap.getOrDefault(canonicalRackKey, -1);
 
             if (bayCount == 0) {
                 // Стелаж без прольотів -> точний пошук (prestock, Tape)
-                return barcodeRepository.findWarehouseViewByRackExact(canonicalRackKey, pageable);
+                log.info("Rack '{}' has no bays, performing exact search, sorting by date.", canonicalRackKey);
+                return barcodeRepository.findByRackExactOrderByCreationDateDesc(canonicalRackKey, dateSortPageable);
             } else {
                 // Стелаж з прольотами -> пошук LIKE (SK, ST)
-                return barcodeRepository.findWarehouseViewByRackLike(canonicalRackKey, pageable);
+                log.info("Rack '{}' has bays, performing starts-with search, sorting by date.", canonicalRackKey);
+                return barcodeRepository.findByRackStartsWithOrderByCreationDateDesc(canonicalRackKey, dateSortPageable);
             }
 
         } else if (bayPresent) {
-            // 3. Фільтр лише по прольоту
-            return barcodeRepository.findWarehouseViewByBay(trimBay, pageable);
+            // ВИПАДОК 3: Фільтр ТІЛЬКИ за Прольотом
+            log.info("Filtering warehouse view by bay '{}' (ends with), sorting by date.", trimBay);
+            return barcodeRepository.findByBayEndsWithOrderByCreationDateDesc(trimBay, dateSortPageable);
 
         } else {
-            // 4. Немає фільтрів
-            return barcodeRepository.findWarehouseViewAll(pageable);
+            // ВИПАДОК 4: Немає фільтрів
+            log.info("No filters applied to warehouse view, sorting by location.");
+            return barcodeRepository.findWarehouseViewAllOrderByLocationAsc(locationSortPageable); // Сортування за локацією
         }
     }
 

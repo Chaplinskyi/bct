@@ -20,7 +20,7 @@
 
     <div class="logo-title-container mb-4">
         <img th:src="@{/images/logo.png}" alt="Логотип" width="100" height="100">
-        <h1 class="text-primary m-0">BCT - Склад Матеріалів</h1>
+        <h1 class="text-success m-0">BCT - Склад Матеріалів</h1>
     </div>
 
     <div class="row g-4">
@@ -31,17 +31,17 @@
                     <i class="bi bi-filter-circle-fill me-2"></i>Фільтри складу
                 </div>
                 <div class="card-body">
-                    <form th:action="@{/warehouse}" method="get" class="d-grid gap-3">
+                    <form th:action="@{/warehouse}" method="get" class="d-grid gap-3" id="filterForm">
                         <div>
                             <label for="apnInput" class="form-label fw-medium">Пошук по APN</label>
                             <input type="text" class="form-control" id="apnInput" name="apn"
-                                   placeholder="Напр. M3130001" th:value="${apnQuery}">
+                                   placeholder="Введіть APN..." th:value="${apnQuery}">
                         </div>
                         <hr>
                         <div>
                             <label for="rackSelect" class="form-label fw-medium">Стелаж</label>
                             <select class="form-select" id="rackSelect" name="rack">
-                                <option value="">Будь-який стелаж</option>
+                                <option value=""> — </option>
                                 <option th:each="r : ${allRacks}"
                                         th:value="${r}"
                                         th:text="${r}"
@@ -50,9 +50,9 @@
                             </select>
                         </div>
                         <div>
-                            <label for="baySelect" class="form-label fw-medium">Проліт</label>
+                            <label for="baySelect" class="form-label fw-medium">№</label>
                             <select class="form-select" id="baySelect" name="bay">
-                                <option value="">Будь-який проліт</option>
+                                <option value=""> — </option>
                                 <option th:each="b : ${allBays}"
                                         th:value="${b}"
                                         th:text="${b}"
@@ -62,7 +62,7 @@
                         </div>
 
                         <div class="d-grid gap-2 mt-2">
-                            <button type="submit" class="btn btn-primary w-100">
+                            <button type="submit" class="btn btn-success w-100">
                                 <i class="bi bi-search me-1"></i> Застосувати
                             </button>
                             <a th:href="@{/warehouse}" class="btn btn-secondary w-100">
@@ -79,10 +79,10 @@
                 </div>
                 <div class="list-group list-group-flush">
                     <a th:href="@{/dashboard}" class="list-group-item list-group-item-action py-3">
-                        <i class="bi bi-house-door-fill me-3 fs-4 text-primary"></i>На головну
+                        <i class="bi bi-house-door-fill me-3 fs-4 text-success"></i>На головну
                     </a>
                     <a th:href="@{/barcodes}" class="list-group-item list-group-item-action py-3">
-                        <i class="bi bi-database me-3 fs-4 text-primary"></i>Вся База Даних
+                        <i class="bi bi-database me-3 fs-4 text-success"></i>Вся База Даних
                     </a>
                 </div>
             </div>
@@ -112,8 +112,12 @@
                                                 <span th:if="${entry.key.bay != null and !entry.key.bay.isEmpty()}"
                                                       th:text="' / Проліт: ' + ${entry.key.bay}"></span>
                                             </span>
-                                            <span class="badge bg-primary rounded-pill"
-                                                  th:text="${#aggregates.sum(entry.value.![quantity])} + ' шт.'"></span>
+                                            <span class="badge bg-primary rounded-pill">
+                                                <th:block th:if="${#strings.equalsIgnoreCase(entry.key.rack, 'wires')}">
+                                                    <span th:text="${#aggregates.sum(entry.value.![quantity])} + ' м.'"></span> </th:block>
+                                                <th:block th:unless="${#strings.equalsIgnoreCase(entry.key.rack, 'wires')}">
+                                                    <span th:text="${#aggregates.sum(entry.value.![quantity])} + ' шт.'"></span> </th:block>
+                                             </span>
                                         </div>
                                     </button>
                                 </h2>
@@ -124,13 +128,20 @@
                                             <thead>
                                             <tr>
                                                 <th class="ps-3">Штрих Код</th>
+                                                <th>APN</th>
                                                 <th>Кількість</th>
                                                 <th>Дата додавання</th>
                                             </tr>
                                             </thead>
                                             <tbody>
                                             <tr th:each="barcode : ${entry.value}">
-                                                <td class.ps-3="ps-3" th:text="${barcode.code}"></td>
+                                                <td>
+                                                    <span th:text="${barcode.code}"></span>
+                                                    <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-1 text-decoration-none text-success" title="Деталі">
+                                                        <i class="bi bi-info-circle"></i>
+                                                    </a>
+                                                </td>
+                                                <td th:text="${barcode.apn}"></td>
                                                 <td th:text="${barcode.quantity}"></td>
                                                 <td th:text="${#temporals.format(barcode.creationDate, 'dd.MM.yy')}"></td>
                                             </tr>
@@ -149,9 +160,9 @@
                     <div class="card-header bg-success-subtle text-success-emphasis fs-5 d-flex justify-content-between align-items-center">
                         <span>
                             <i class="bi bi-table me-2"></i>
-                            <span th:if="${rackQuery != null and !rackQuery.isEmpty()}" th:text="'Огляд: Стелаж ' + ${rackQuery}"></span>
-                            <span th:if="${bayQuery != null and !bayQuery.isEmpty()}" th:text="'Огляд: Проліт ' + ${bayQuery}"></span>
-                            <span th:if="${(rackQuery == null or rackQuery.isEmpty()) and (bayQuery == null or bayQuery.isEmpty())}">Огляд: Увесь склад</span>
+                            <span th:if="${rackQuery != null and !rackQuery.isEmpty()}" th:text="'Стелаж: ' + ${rackQuery}"></span>
+                            <span th:if="${bayQuery != null and !bayQuery.isEmpty()}" th:text="'№ - ' + ${bayQuery}"></span>
+                            <span th:if="${(rackQuery == null or rackQuery.isEmpty()) and (bayQuery == null or bayQuery.isEmpty())}">Cклад матеріалів</span>
                         </span>
                         <span class="badge bg-secondary rounded-pill" th:text="${warehousePage.totalElements} + ' записів'"></span>
                     </div>
@@ -161,25 +172,25 @@
                                 <thead>
                                 <tr>
                                     <th>№</th>
-                                    <th>Локація</th>
-                                    <th>APN</th>
                                     <th>Штрих Код</th>
+                                    <th>APN</th>
                                     <th>К-сть</th>
-                                    <th>Дата доб.</th>
+                                    <th>Локація</th>
+                                    <th>Дата доб. <span th:if="${(rackQuery != null and !rackQuery.isEmpty()) or (bayQuery != null and !bayQuery.isEmpty())}">↓</span></th>
                                 </tr>
                                 </thead>
                                 <tbody>
                                 <tr th:each="barcode, iterStat : ${warehousePage.content}">
                                     <td th:text="${(currentPage * pageSize) + iterStat.count}"></td>
-                                    <td th:text="${barcode.location}"></td>
-                                    <td th:text="${barcode.apn}"></td>
                                     <td>
                                         <span th:text="${barcode.code}"></span>
-                                        <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-1 text-decoration-none text-primary" title="Деталі">
+                                        <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-1 text-decoration-none text-success" title="Деталі">
                                             <i class="bi bi-info-circle"></i>
                                         </a>
                                     </td>
+                                    <td th:text="${barcode.apn}"></td>
                                     <td th:text="${barcode.quantity}"></td>
+                                    <td th:text="${barcode.location}"></td>
                                     <td th:text="${#temporals.format(barcode.creationDate, 'dd.MM.yy')}"></td>
                                 </tr>
                                 <tr th:if="${warehousePage.empty}">
@@ -214,5 +225,153 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const locationMap = /*[[${locationMap}]]*/ {};
+    const initialRackQuery = /*[[${rackQuery}]]*/ null;
+    const initialBayQuery = /*[[${bayQuery}]]*/ null;
+
+    // Виводимо дані для перевірки в консолі браузера
+    console.log("Location Map:", locationMap);
+    console.log("Initial Rack:", initialRackQuery);
+    console.log("Initial Bay:", initialBayQuery);
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const rackSelect = document.getElementById('rackSelect');
+        const baySelect = document.getElementById('baySelect');
+        const filterForm = document.getElementById('filterForm');
+        const apnInput = document.getElementById('apnInput');
+
+        // --- Функція оновлення списку прольотів (Bay Dropdown) ---
+        function updateBayOptions() {
+            if (!rackSelect || !baySelect || !locationMap) return;
+
+            const selectedRack = rackSelect.value;
+            let maxBay = 0;
+            let shouldBeDisabled = true;
+
+            if (selectedRack && locationMap.hasOwnProperty(selectedRack)) {
+                const bayCount = parseInt(locationMap[selectedRack], 10);
+                if (!isNaN(bayCount) && bayCount > 0) {
+                    maxBay = bayCount;
+                    shouldBeDisabled = false;
+                }
+            }
+
+            console.log(`Updating bays for rack "${selectedRack}". MaxBay: ${maxBay}, Should be disabled: ${shouldBeDisabled}`); // DEBUG
+
+            // Зберігаємо поточне значення, якщо воно є валідним числом
+            const currentSelectedBayValue = baySelect.value;
+
+            baySelect.innerHTML = ''; // Очищуємо
+
+            // Додаємо опцію за замовчуванням "—"
+            baySelect.add(new Option('—', ''));
+
+            // Генеруємо нові опції
+            if (maxBay > 0) {
+                console.log(`Generating bay options from 1 to ${maxBay}`); // DEBUG
+                for (let i = 1; i <= maxBay; i++) {
+                    const optionValue = i.toString();
+                    baySelect.add(new Option(optionValue, optionValue));
+                }
+            }
+
+            // Намагаємося відновити попереднє значення, якщо воно валідне
+            // Перевіряємо, чи існує опція з таким значенням у новому списку
+            if (!shouldBeDisabled && currentSelectedBayValue && baySelect.querySelector(`option[value="${currentSelectedBayValue}"]`)) {
+                console.log(`Restoring previous bay selection: "${currentSelectedBayValue}"`); // DEBUG
+                baySelect.value = currentSelectedBayValue;
+            } else {
+                console.log(`Setting bay selection to default ("")`); // DEBUG
+                baySelect.value = "";
+            }
+
+            // Встановлюємо стан блокування
+            baySelect.disabled = shouldBeDisabled;
+            console.log(`Bay select disabled state set to: ${baySelect.disabled}`); // DEBUG
+        }
+
+        // --- Функція оновлення стану APN та ін. ---
+        function updateApnState(changedElement) {
+            if (!rackSelect || !baySelect || !apnInput) return;
+
+            const rackValue = rackSelect.value;
+            const bayValue = baySelect.value;
+            const isRackOrBayFilterActive = rackValue !== "" || (bayValue !== "" && !baySelect.disabled); // Перевіряємо чи bay не заблокований
+
+            apnInput.disabled = isRackOrBayFilterActive;
+            if (isRackOrBayFilterActive && changedElement !== apnInput && apnInput.value.trim() !== "") {
+                apnInput.value = "";
+            }
+        }
+
+
+        // --- Обробники подій ---
+        if (rackSelect) {
+            rackSelect.addEventListener('change', function(event) {
+                console.log("Rack select changed."); // DEBUG
+                updateBayOptions(); // Оновлюємо список прольотів
+                updateApnState(rackSelect); // Оновлюємо стан APN
+                // Не надсилаємо форму автоматично, якщо змінили rack
+                // filterForm.submit();
+            });
+        }
+
+        if (baySelect) {
+            baySelect.addEventListener('change', function(event) {
+                console.log("Bay select changed."); // DEBUG
+                updateApnState(baySelect); // Оновлюємо стан APN
+                // Не надсилаємо форму автоматично, якщо змінили bay
+                // filterForm.submit();
+            });
+        }
+
+        if (apnInput) {
+            apnInput.addEventListener('input', function() {
+                console.log("APN input detected."); // DEBUG
+                if (rackSelect.value !== "" || baySelect.value !== "") {
+                    console.log("Resetting Rack and Bay selections due to APN input."); // DEBUG
+                    rackSelect.value = "";
+                    updateBayOptions(); // Скидаємо/оновлюємо прольоти
+                }
+                updateApnState(apnInput); // Оновлюємо стани (розблокує APN)
+            });
+        }
+
+        // Розблокування полів перед надсиланням форми (залишаємо на випадок ручного submit)
+        if (filterForm) {
+            filterForm.addEventListener('submit', function(event) {
+                console.log("Form submit initiated."); // DEBUG
+                if (apnInput && apnInput.disabled) { apnInput.disabled = false; }
+                if (baySelect && baySelect.disabled) { baySelect.disabled = false; }
+            });
+        }
+
+        // --- Початкове налаштування при завантаженні сторінки ---
+        console.log("Running initial setup on page load."); // DEBUG
+        if (rackSelect && baySelect && locationMap) {
+            updateBayOptions(); // Генеруємо правильний список прольотів на основі initialRackQuery
+            // Встановлюємо початковий bay, якщо він валідний для початкового rack
+            if (initialBayQuery && !baySelect.disabled && baySelect.querySelector(`option[value="${initialBayQuery}"]`)) {
+                baySelect.value = initialBayQuery;
+                console.log(`Initial bay value set to: "${initialBayQuery}"`); // DEBUG
+            } else if(baySelect) {
+                baySelect.value = "";
+                console.log("Initial bay value set to default ('')"); // DEBUG
+            }
+            updateApnState(null); // Встановлюємо початковий стан блокування APN
+        } else {
+            console.error("Initial setup failed: Missing rackSelect, baySelect or locationMap.");
+        }
+        console.log("Initial setup complete."); // DEBUG
+
+    });
+    /*]]>*/
+</script>
 </body>
 </html>
