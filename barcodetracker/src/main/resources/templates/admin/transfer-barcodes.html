@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Переміщення Штрих Кодів</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+
+    <link rel="stylesheet" th:href="@{/css/style.css(v=1.2)}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body class="bg-light">
+<div class="container py-4" style="max-width: 900px;">
+
+    <div class="logo-title-container mb-4">
+        <img src="/images/logo.png" alt="Логотип">
+        <h1 class="text-success m-0">BCT - Переміщення Штрих Кодів</h1>
+    </div>
+
+    <div th:if="${message}" class="alert alert-success" th:text="${message}"></div>
+    <div th:if="${error}" class="alert alert-danger" th:utext="${error}"></div>
+
+    <ul class="nav nav-tabs nav-fill mb-3" id="transferTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="simple-transfer-tab" data-bs-toggle="tab"
+                    data-bs-target="#simple-transfer" type="button" role="tab"
+                    aria-controls="simple-transfer" aria-selected="true">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Просте переміщення
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="detailed-transfer-tab" data-bs-toggle="tab"
+                    data-bs-target="#detailed-transfer" type="button" role="tab"
+                    aria-controls="detailed-transfer" aria-selected="false">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Детальне (з файлу)
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="transferTabsContent">
+
+        <div class="tab-pane fade show active" id="simple-transfer" role="tabpanel"
+             aria-labelledby="simple-transfer-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+                    Перемістити всі Штрих Коди з файлу на одну локацію
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/transfer}" method="post" enctype="multipart/form-data"
+                          onsubmit="enableLocationNumberIfDisabled()">
+
+                        <div class="mb-3">
+                            <label for="fileSimple" class="form-label fw-bold">1. Оберіть Excel-файл (.xlsx):</label>
+                            <input class="form-control" type="file" name="file" id="fileSimple" accept=".xlsx" required>
+                            <div class="form-text">
+                                Файл повинен містити лише один стовпець (A) зі Штрих Кодами.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">2. Оберіть нову локацію:</label>
+                            <div class="d-flex align-items-center flex-wrap gap-3 p-3 border rounded bg-light">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="isExcessCheckbox" name="isExcess" value="true">
+                                    <label class="form-check-label" for="isExcessCheckbox">Excess</label>
+                                </div>
+                                <select id="locationSelect" name="newLocation" class="form-select w-auto" required>
+                                    <option th:if="${locationMap.containsKey('prestock')}" value="prestock">prestock</option>
+                                    <option th:each="loc : ${locationMap}"
+                                            th:unless="${loc.key == 'prestock'}"
+                                            th:value="${loc.key}"
+                                            th:text="${loc.key}">
+                                    </option>
+                                </select>
+                                <div class="d-flex align-items-center">
+                                    <label for="locationNumber" class="me-2 mb-0">№</label>
+                                    <select class="form-select w-auto" name="locationNumber" id="locationNumber">
+                                        <option value="">—</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success ms-2 w-100 btn-lg"
+                                id="submitSimpleTransferBtn" disabled>
+                            <i class="bi bi-play-fill me-2"></i>Розпочати переміщення
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="detailed-transfer" role="tabpanel" aria-labelledby="detailed-transfer-tab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+                    Перемістити Штрих Коди на різні локації згідно файлу
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/transfer-detailed}" method="post" enctype="multipart/form-data">
+
+                        <div class="mb-3">
+                            <label for="fileDetailed" class="form-label fw-bold">Оберіть Excel-файл (.xlsx):</label>
+                            <input class="form-control" type="file" name="file" id="fileDetailed" accept=".xlsx" required>
+                        </div>
+
+                        <div class="form-text mb-3">
+                            Файл повинен мати наступну структуру:
+                            <ul>
+                                <li><b>Колонка A:</b> Штрих Код</li>
+                                <li><b>Колонка B:</b> APN (напр. "M3130001")</li>
+                                <li><b>Колонка C:</b> Кількість (напр. 18000)</li>
+                                <li><b>Колонка D:</b> Назва стелажу (напр. "SK" або "excess SK")</li>
+                                <li><b>Колонка E:</b> Номер прольоту (напр. "4")</li>
+                            </ul>
+                            Система автоматично провалідує назви стелажів та номери прольотів.
+                        </div>
+
+                        <button type="submit" class="btn btn-success ms-2 w-100 btn-lg">
+                            <i class="bi bi-cloud-arrow-up-fill me-2"></i>Завантажити та обробити
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a th:href="@{/dashboard}" class="btn btn-success ms-2">
+            <i class="bi bi-house-door me-1"></i>На головну
+        </a>
+    </div>
+
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const locationMap = /*[[${locationMap}]]*/ {};
+    function enableLocationNumberIfDisabled() {
+        const numSelect = document.getElementById("locationNumber");
+        if (numSelect && numSelect.disabled) {
+            numSelect.disabled = false;
+        }
+    }
+    document.addEventListener("DOMContentLoaded", function() {
+        const locationForm = document.querySelector("form[onsubmit='enableLocationNumberIfDisabled()']");
+        if (locationForm) {
+            const fileInput = document.getElementById("fileSimple");
+            const excessCheckbox = document.getElementById("isExcessCheckbox");
+            const locationSelect = document.getElementById("locationSelect");
+            const numSelect = document.getElementById("locationNumber");
+            const submitBtn = document.getElementById("submitSimpleTransferBtn");
+            function checkFormValidity() {
+                const fileIsSelected = fileInput.value !== "";
+                const location = locationSelect.value;
+                const number = numSelect.value;
+                let locationIsValid = false;
+                if (location === "prestock") {
+                    locationIsValid = true;
+                } else if (number !== "") {
+                    locationIsValid = true;
+                }
+                submitBtn.disabled = !(fileIsSelected && locationIsValid);
+            }
+            function updateNumberDropdown() {
+                const selectedLocation = locationSelect.value;
+                const maxNumber = locationMap[selectedLocation] || 0;
+                numSelect.innerHTML = "";
+                if (selectedLocation === "prestock") {
+                    numSelect.disabled = true;
+                    excessCheckbox.disabled = true;
+                    excessCheckbox.checked = false;
+                    numSelect.add(new Option("—", ""));
+                } else {
+                    numSelect.disabled = false;
+                    excessCheckbox.disabled = false;
+                    numSelect.add(new Option("—", ""));
+                    for (let i = 1; i <= maxNumber; i++) {
+                        numSelect.add(new Option(i, i));
+                    }
+                }
+                checkFormValidity();
+            }
+            fileInput.addEventListener("change", checkFormValidity);
+            locationSelect.addEventListener("change", updateNumberDropdown);
+            numSelect.addEventListener("change", checkFormValidity);
+            excessCheckbox.addEventListener("change", checkFormValidity);
+            updateNumberDropdown();
+        }
+    });
+    /*]]>*/
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

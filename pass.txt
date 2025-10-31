@@ -1,0 +1,61 @@
+SSH доступ
+
+Основна ІР адреса:
+
+185.237.205.10
+
+Імя сервера:
+
+vps74591.hyperhost.name
+
+Логін:
+
+root
+
+root пароль:
+
+2W81u6rthI
+
+server {
+    server_name bct.pp.ua www.bct.pp.ua;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    listen [::]:443 ssl ipv6only=on; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/bct.pp.ua/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/bct.pp.ua/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = www.bct.pp.ua) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    if ($host = bct.pp.ua) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    listen [::]:80;
+
+    server_name bct.pp.ua www.bct.pp.ua;
+    return 404; # managed by Certbot
+}
+
+sudo certbot --nginx -d bct.pp.ua -d www.bct.pp.ua
+
+scp "/d/Bogdan/bct-main/bct-main/barcodetracker/target/barcodetracker-0.0.1-SNAPSHOT.jar" root@185.237.205.10:/opt/bct/barcodetracker-0.0.1-SNAPSHOT.jar
+
+export DB_URL=jdbc:postgresql://localhost:5432/bctdb # або IP
+export DB_USERNAME=admin1
+export DB_PASSWORD=mypassword123
+# export SERVER_PORT=... # якщо потрібно

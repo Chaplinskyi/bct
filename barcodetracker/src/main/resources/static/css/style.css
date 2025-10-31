@@ -1,0 +1,114 @@
+/* --- Оновлена "Subtle" зелена палітра --- */
+
+/* Нові кольори:
+  --bs-success-subtle: #D1E7DD (Світлий фон)
+  --bs-success-text-emphasis: #0A3622 (Темний текст)
+  --bs-success-border-subtle: #A3D1B9 (Трохи темніша рамка)
+  --bs-success-subtle-hover: #B7D9C8 (Світлий фон при наведенні)
+*/
+
+body {
+    /* Це "системний шрифт". Він автоматично обирає найкращий
+      сучасний шрифт, встановлений на пристрої користувача:
+      - "San Francisco" на Apple (Mac, iPhone)
+      - "Segoe UI" на Windows
+      - "Roboto" на Android
+    */
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.logo-title-container {
+    display: flex;         /* Вмикає Flexbox */
+    align-items: center;   /* Вертикальне вирівнювання по центру */
+    justify-content: center; /* Горизонтальне вирівнювання по центру */
+    gap: 20px;             /* Відстань між логотипом і текстом */
+}
+
+.logo-title-container img {
+    width: 150px;
+    height: 150px;
+}
+
+.page-link.green {
+    background-color: #D1E7DD; /* Світлий фон */
+    color: #0A3622;           /* Темний текст */
+    border-color: #A3D1B9;
+}
+
+.page-link.green:hover {
+    background-color: #B7D9C8; /* Трохи темніший фон */
+    color: #0A3622;
+    border-color: #A3D1B9;
+}
+
+/* Оновлює ваш головний брендовий колір тексту */
+.text-success {
+    color: #0A3622 !important; /* Темний текст */
+}
+
+/* Оновлює ваш головний суцільний фон (використовуємо основний зелений BS) */
+.bg-primary {
+    background-color: #198754 !important;
+}
+
+/* ========================================================================
+  СТИЛЬ КНОПОК ("SUBTLE" ЗЕЛЕНИЙ)
+  ======================================================================== */
+
+/* 1. Головна кнопка (Світло-зелена) */
+.btn-success {
+    background-color: #D1E7DD; /* Світлий фон */
+    border-color: #A3D1B9;     /* Трохи темніша рамка */
+    color: #0A3622;            /* Темний текст */
+}
+
+/* 2. Головна кнопка при наведенні */
+.btn-success:hover,
+.btn-success:focus {
+    background-color: #B7D9C8; /* Темніший фон при наведенні */
+    border-color: #A3D1B9;
+    color: #0A3622;
+}
+
+/* 3. Додаткова кнопка (напр. "Скинути" - X) - Стандартна сіра */
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus {
+    background-color: #5c636a;
+    border-color: #565e64;
+    color: white;
+}
+
+/* ========================================================================
+  Кастомні "Subtle" вкладки (Tabs)
+  ========================================================================
+*/
+.nav-tabs .nav-link {
+    /* Неактивна вкладка - темний текст, прозорий фон */
+    color: #0A3622 !important;
+    border-color: transparent; /* Робимо рамки неактивних вкладок прозорими */
+}
+
+/* ОНОВЛЕНО:
+  Тепер 'hover' і 'active' мають однаковий, висококонтрастний стиль.
+*/
+.nav-tabs .nav-link:hover,
+.nav-tabs .nav-link:focus,
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+    color: #FFFFFF !important;           /* Білий текст */
+    background-color: #0A3622 !important; /* Темний фон (text-emphasis) */
+    border-color: #0A3622 !important;     /* Темна рамка */
+}
+
+/* Активна вкладка - інвертовані кольори */
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+    color: #FFFFFF !important;
+}

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Деталі Штрих Коду</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        @media (max-width: 575.98px) {
+            .logo-title-container img {
+                width: 60px; /* Менший логотип */
+                height: 60px;
+            }
+            .logo-title-container h1 {
+                font-size: 1.4rem; /* Менший заголовок */
+            }
+            .card-header.fs-5 {
+                font-size: 1.1rem !important; /* Менші заголовки карток */
+            }
+            .card-body {
+                padding: 0.8rem; /* Менші відступи тіла картки */
+            }
+            .list-group-item {
+                /* Зменшуємо відступи елементів списку */
+                padding-top: 0.6rem;
+                padding-bottom: 0.6rem;
+                font-size: 0.9rem; /* Трохи менший шрифт */
+            }
+            .list-group-item strong {
+                font-size: 1rem; /* Зменшуємо жирний текст */
+            }
+            .management-section h5 {
+                font-size: 1.15rem; /* Зменшуємо підзаголовки */
+                margin-bottom: 0.5rem;
+                text-align: center; /* Центруємо підзаголовки */
+            }
+            .history-card h4 { /* Заголовки історії */
+                font-size: 1.1rem;
+            }
+            /* Робимо селекти вужчими на XS */
+            .management-form .form-select-sm,
+            .management-form .btn-sm {
+                width: 100% !important; /* На XS займають всю ширину */
+            }
+            .management-form .form-check {
+                width: 100%; /* Чекбокс також на всю ширину */
+                padding-left: 2.5em; /* Додаємо відступ для центрованого тексту */
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+<div class="container py-3">
+
+    <div class="logo-title-container mb-4 text-center text-sm-start">
+        <img src="/images/logo.png" alt="Логотип" class="me-sm-2">
+        <h1 class="text-success m-0">BCT - Інформація ШК</h1> </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success-subtle text-success-emphasis fs-5 py-2"> <i class="bi bi-person-vcard-fill me-2"></i>Основна Інформація
+        </div>
+        <div class="card-body">
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-1">
+                    <span class="text-muted">Штрих Код</span>
+                    <strong class="fs-6 text-break" th:text="${barcode.code}">123456</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-1">
+                    <span class="text-muted">APN</span>
+                    <strong class="fs-6 text-break" th:text="${barcode.apn}">APN</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-1">
+                    <span class="text-muted">Кількість</span>
+                    <strong class="fs-6" th:text="${barcode.quantity}">1</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-1">
+                    <span class="text-muted">Дата додавання</span>
+                    <strong class="fs-6" th:text="${barcode.creationDate != null ? #temporals.format(barcode.creationDate, 'dd.MM.yy HH:mm') : 'Не вказано'}">10.06.25 10:30</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-1">
+                    <span class="text-muted">Дата ост. зміни</span>
+                    <strong class="fs-6" th:text="${#temporals.format(barcode.lastUpdated, 'dd.MM.yyyy HH:mm')}">10.06.25 10:30</strong>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4 management-section">
+        <div class="card-header bg-success-subtle text-success-emphasis fs-5 py-2">
+            <i class="bi bi-pencil-square me-2"></i>Управління
+        </div>
+        <div class="card-body">
+
+            <div class="row align-items-start py-3 border-bottom">
+                <div class="col-12 col-lg-3">
+                    <h5 class="mb-2 mb-lg-0"><i class="bi bi-geo-alt me-2"></i>Локація</h5>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div th:if="${barcode.location == 'wires'}" class="text-center text-lg-start">
+                        <span class="badge bg-success fs-6" th:text="${barcode.location}">wires</span>
+                        <small class="text-muted d-block d-lg-inline">(локацію можна знайти в DWS)</small>
+                    </div>
+
+                    <form th:unless="${barcode.location == 'wires'}" th:action="@{'/barcodes/' + ${barcode.id} + '/updateLocation'}" method="post"
+                          class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 management-form" onsubmit="enableLocationNumberIfDisabled()">
+
+                        <div class="form-check form-switch mb-2 mb-sm-0">
+                            <input class="form-check-input" type="checkbox" id="isExcessCheckbox" name="isExcess" value="true">
+                            <label class="form-check-label" for="isExcessCheckbox">Excess</label>
+                        </div>
+
+                        <select id="locationSelect" name="newLocation" class="form-select form-select-sm w-auto flex-sm-grow-1 mb-2 mb-sm-0">
+                            <option th:if="${locationMap.containsKey('prestock')}" value="prestock">prestock</option>
+                            <option th:each="loc : ${locationMap}"
+                                    th:unless="${loc.key == 'prestock'}"
+                                    th:value="${loc.key}"
+                                    th:text="${loc.key}">
+                            </option>
+                        </select>
+
+                        <div class="d-flex align-items-center mb-2 mb-sm-0">
+                            <label for="locationNumber" class="me-2 mb-0 small">№</label>
+                            <select class="form-select form-select-sm w-auto" name="locationNumber" id="locationNumber">
+                                <option value="">—</option>
+                            </select>
+                        </div>
+
+                        <button id="moveLocationBtn" type="submit" class="btn btn-success btn-sm">Змінити</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="row align-items-start py-3">
+                <div class="col-12 col-lg-3">
+                    <h5 class="mb-2 mb-lg-0"><i class="bi bi-toggles me-2"></i>Статус</h5>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <form th:action="@{'/barcodes/' + ${barcode.id} + '/updateStatus'}" method="post" class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 management-form">
+                        <select id="statusSelect" name="newStatus" class="form-select form-select-sm w-auto flex-sm-grow-1 mb-2 mb-sm-0">
+                            <option value="stock" th:selected="${barcode.status == 'stock'}">stock</option>
+                            <option value="out" th:selected="${barcode.status == 'out'}">out</option>
+                            <option value="check" th:selected="${barcode.status == 'check'}">check</option>
+                        </select>
+                        <button id="moveStatusBtn" type="submit" class="btn btn-success btn-sm">Змінити</button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="row mt-3"> <div class="col-md-6 mb-3">
+        <div class="card h-100 shadow-sm history-card">
+            <div class="card-header bg-success-subtle text-success-emphasis fs-5 py-2">
+                <h4><i class="bi bi-compass me-2"></i> Історія локацій</h4>
+            </div>
+            <ul class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                <li th:each="loc : ${locationHistory}" class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-1">
+                    <b class="text-break" th:text="${loc.newLocation}">Локація</b>
+                    <small class="text-muted" style="white-space: nowrap;" th:text="${#temporals.format(loc.changeTime, 'dd.MM.yy HH:mm')}">Дата</small>
+                </li>
+                <li th:if="${#lists.isEmpty(locationHistory)}" class="list-group-item text-muted">
+                    Історія локацій порожня.
+                </li>
+            </ul>
+        </div>
+    </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card h-100 shadow-sm history-card">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5 py-2">
+                    <h4><i class="bi bi-arrow-left-right me-2"></i> Історія статусів</h4>
+                </div>
+                <ul class="list-group list-group-flush" style="max-height: 250px; overflow-y: auto;">
+                    <li th:each="stat : ${statusHistory}" class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-1">
+                        <b th:text="${stat.newStatus}">Статус</b>
+                        <small class="text-muted" style="white-space: nowrap;" th:text="${#temporals.format(stat.changeTime, 'dd.MM.yy HH:mm')}">Дата</small>
+                    </li>
+                    <li th:if="${#lists.isEmpty(statusHistory)}" class="list-group-item text-muted">
+                        Історія статусів порожня.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-3 d-grid gap-2 d-sm-block">
+        <a th:href="@{/barcodes}" class="btn btn-success btn-sm ms-sm-2 mb-2 mb-sm-0">
+            <i class="bi bi-database me-1"></i>До Бази Даних
+        </a>
+        <a th:href="@{/dashboard}" class="btn btn-success btn-sm ms-sm-2 mb-2 mb-sm-0">
+            <i class="bi bi-house-door me-1"></i>На головну
+        </a>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+
+    // Передаємо дані з контролера в JavaScript
+    const locationMap = /*[[${locationMap}]]*/ {};
+    const currentLocationString = /*[[${barcode.location}]]*/ 'prestock';
+
+    // Ця функція викликається перед відправкою форми локації
+    function enableLocationNumberIfDisabled() {
+        const numSelect = document.getElementById("locationNumber");
+        if (numSelect && numSelect.disabled) {
+            numSelect.disabled = false;
+        }
+    }
+
+    // Запускаємо весь код тільки після повного завантаження сторінки
+    document.addEventListener("DOMContentLoaded", function() {
+
+        // --- 1. ЛОГІКА ДЛЯ ФОРМИ СТАТУСУ ---
+        const statusSelect = document.getElementById("statusSelect");
+        const moveStatusBtn = document.getElementById("moveStatusBtn");
+
+        if (statusSelect) {
+            const initialStatus = statusSelect.value;
+            function checkStatusChange() {
+                moveStatusBtn.disabled = (statusSelect.value === initialStatus);
+            }
+            statusSelect.addEventListener("change", checkStatusChange);
+            checkStatusChange();
+        }
+
+        // --- 2. ЛОГІКА ДЛЯ ФОРМИ ЛОКАЦІЇ ---
+        const locationForm = document.querySelector("form[onsubmit='enableLocationNumberIfDisabled()']");
+        if (locationForm) {
+            const excessCheckbox = document.getElementById("isExcessCheckbox");
+            const locationSelect = document.getElementById("locationSelect");
+            const numSelect = document.getElementById("locationNumber");
+            const moveLocationBtn = document.getElementById("moveLocationBtn");
+
+            // Розбираємо поточну локацію на частини
+            let initialExcess = currentLocationString.includes("excess");
+            let initialLocation = "prestock";
+            let initialNumber = "";
+
+            let tempLocation = currentLocationString.replace("excess", "").trim();
+
+            let bestMatch = "";
+            for (let key in locationMap) {
+                if (tempLocation.startsWith(key) && key.length > bestMatch.length) {
+                    bestMatch = key;
+                }
+            }
+
+            if (bestMatch) {
+                initialLocation = bestMatch;
+                initialNumber = tempLocation.substring(bestMatch.length).trim();
+            } else if (!currentLocationString.includes("prestock")) {
+                let parts = tempLocation.split(" ");
+                initialLocation = parts[0] || "";
+                initialNumber = parts[1] || "";
+            }
+
+            // Встановлюємо початкові значення у формі
+            excessCheckbox.checked = initialExcess;
+            locationSelect.value = initialLocation;
+
+            function updateNumberDropdown() {
+                const selectedLocation = locationSelect.value;
+                const maxNumber = locationMap[selectedLocation] || 0;
+
+                numSelect.innerHTML = "";
+
+                if (selectedLocation === "prestock") {
+                    numSelect.disabled = true;
+                    excessCheckbox.disabled = true;
+                    excessCheckbox.checked = false;
+                    numSelect.add(new Option("—", ""));
+                } else {
+                    numSelect.disabled = false;
+                    excessCheckbox.disabled = false;
+                    numSelect.add(new Option("—", ""));
+                    for (let i = 1; i <= maxNumber; i++) {
+                        numSelect.add(new Option(i, i));
+                    }
+                }
+            }
+
+            function checkLocationChange() {
+                const isExcess = excessCheckbox.checked;
+                const location = locationSelect.value;
+                const number = numSelect.value;
+
+                // Перевірка 1: Чи змінились значення порівняно з початковими?
+                const isSameAsInitial = (isExcess === initialExcess &&
+                    location === initialLocation &&
+                    number === initialNumber);
+
+                // Перевірка 2: Чи обрано стелаж, що вимагає номер, але номер не вказано?
+                const requiresNumber = (location !== "prestock" && locationMap[location] > 0); // Перевіряємо, чи стелаж має номери
+                const numberIsEmpty = (number === "");
+                const numberIsRequiredButMissing = requiresNumber && numberIsEmpty;
+
+                // Кнопка заблокована, якщо:
+                // - нічого не змінилося АБО
+                // - потрібен номер, але він не обраний
+                moveLocationBtn.disabled = isSameAsInitial || numberIsRequiredButMissing;
+            }
+
+            // Додаємо слухачів на ВСІ елементи форми
+            excessCheckbox.addEventListener("change", checkLocationChange);
+            locationSelect.addEventListener("change", () => {
+                updateNumberDropdown();
+                checkLocationChange();
+            });
+            numSelect.addEventListener("change", checkLocationChange);
+
+            // --- Ініціалізація ---
+            updateNumberDropdown();
+            numSelect.value = initialNumber;
+            checkLocationChange();
+        }
+    });
+    /*]]>*/
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
