@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Всі Штрих Коди</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        .page-link.green {
+            background-color: #198754;
+            color: white;
+            border-color: #198754;
+        }
+        .page-link.green:hover {
+            background-color: #157347;
+            color: white;
+            border-color: #146c43;
+        }
+        .page-link.green { background-color: #D1E7DD; color: #0A3622; border-color: #A3D1B9; }
+        .page-link.green:hover { background-color: #B7D9C8; color: #0A3622; border-color: #A3D1B9; }
+        .table th { background-color: #eaf3eb; }
+    </style>
+</head>
+
+<body class="bg-light">
+<div class="container-fluid py-4 px-lg-5">
+
+    <div class="logo-title-container d-flex flex-column flex-sm-row align-items-center justify-content-center mb-4">
+        <img src="/images/logo.png" alt="Логотип">
+        <h1 class="text-success m-0 text-center">BCT - Всі Штрих Коди на Складі</h1>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+            <i class="bi bi-tools me-2"></i>Панель керування
+        </div>
+        <div class="card-body">
+            <div class="row g-3 justify-content-between align-items-center">
+                <div class="col-md-6 col-lg-4">
+                    <form th:action="@{/barcodes}" method="get" class="d-flex">
+                        <input type="text" class="form-control"
+                               name="apn" placeholder="Пошук по APN..." th:value="${apn}">
+                        <button type="submit" class="btn btn-success ms-2"><i class="bi bi-search"></i></button>
+                        <a th:href="@{/barcodes}" class="btn btn-secondary ms-2"><i class="bi bi-x-lg"></i></a>
+                    </form>
+                </div>
+
+                <div class="col-md-6 col-lg-8">
+                    <div class="d-grid d-lg-flex justify-content-lg-end gap-2">
+                        <a th:href="@{/dashboard}" class="btn btn-success">
+                            <i class="bi bi-house-door me-1"></i>На головну
+                        </a>
+                        <a th:href="@{/barcodes/download(apn=${apn})}" class="btn btn-success"
+                           th:classappend="${#lists.isEmpty(barcodes)} ? 'disabled' : ''">
+                            <i class="bi bi-download me-1"></i> Завантажити (STAV)
+                        </a>
+                        <a th:href="@{/barcodes/download/summary}" class="btn btn-success">
+                            <i class="bi bi-download me-1"></i> Завантажити Зведену (RAW)
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover m-0 text-center align-middle">
+                    <thead class="table-success">
+                    <tr>
+                        <th>№</th>
+                        <th>Штрих Код</th>
+                        <th>APN</th>
+                        <th>Кількість</th>
+                        <th>Локація</th>
+                        <th>Дата додавання</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="barcode, iterStat : ${barcodes}">
+                        <td th:text="${(currentPage * pageSize) + iterStat.count}">1</td>
+                        <td>
+                            <span th:text="${barcode.code}">123456</span>
+                            <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-2 text-decoration-none text-success" title="Деталі">
+                                <i class="bi bi-info-circle"></i>
+                            </a>
+                        </td>
+                        <td th:text="${barcode.apn}">APN</td>
+                        <td th:text="${barcode.quantity}">1</td>
+
+                        <td>
+                                <span th:if="${barcode.location == 'prestock'}"
+                                      class="badge bg-success" th:text="${barcode.location}"></span>
+                            <span th:if="${barcode.location == 'wires'}"
+                                  class="badge bg-success" th:text="${barcode.location}"></span>
+                            <span th:if="${barcode.location != 'prestock' and barcode.location != 'wires'}"
+                                  th:text="${barcode.location}"></span>
+                        </td>
+
+                        <td th:text="${#temporals.format(barcode.creationDate, 'dd.MM.yyyy')}">2025-06-10</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(barcodes)}">
+                        <td colspan="6" class="text-center text-muted p-4">
+                            За вашим запитом Штрих Кодів не знайдено.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <nav th:if="${totalPages > 1}" class="mt-4">
+        <ul class="pagination justify-content-center flex-wrap">
+            <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                <a class="page-link green" th:href="@{/barcodes(page=0, apn=${apn}, size=${pageSize})}">Перша</a>
+            </li>
+            <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                <a class="page-link green" th:href="@{/barcodes(page=${currentPage - 1}, apn=${apn}, size=${pageSize})}">←</a>
+            </li>
+            <li class="page-item disabled">
+                <span class="page-link text-dark">Сторінка <span th:text="${currentPage + 1}"></span> з <span th:text="${totalPages}"></span></span>
+            </li>
+            <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
+                <a class="page-link green" th:href="@{/barcodes(page=${currentPage + 1}, apn=${apn}, size=${pageSize})}">→</a>
+            </li>
+            <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
+                <a class="page-link green" th:href="@{/barcodes(page=${totalPages - 1}, apn=${apn}, size=${pageSize})}">Остання</a>
+            </li>
+        </ul>
+    </nav>
+
+</div>
+</body>
+</html>

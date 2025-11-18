@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <title>BCT - Admin Dashboard</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        .stat-card .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, .15) !important;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .list-group-item-action:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+<div class="container py-4">
+
+    <div class="logo-title-container d-flex flex-column flex-sm-row align-items-center justify-content-center mb-4">
+        <img src="/images/logo.png" alt="Логотип" width="100" height="100">
+        <h1 class="text-success m-0 text-center">BCT - Admin Dashboard</h1>
+    </div>
+
+    <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <span th:text="${error}">Штрих Код не знайдено!</span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body p-4">
+            <form th:action="@{/barcodes/search}" method="get" role="search">
+                <div class="input-group input-group-lg">
+                    <input name="code" class="form-control" type="search" placeholder="Шукати..." aria-label="Search" required>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-search me-1"></i> Пошук
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-md-8">
+
+            <div class="card shadow-sm mb-4" th:if="${not #lists.isEmpty(outdatedBarcodes)}">
+                <div class="card-header bg-warning-subtle text-warning-emphasis fs-5">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Застарілий Матеріал
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped table-hover m-0 text-center align-middle">
+                            <thead class="table-danger-subtle"> <tr>
+                                <th>№</th>
+                                <th>Штрих Код</th>
+                                <th>APN</th>
+                                <th>Кількість</th>
+                                <th>Локація</th>
+                                <th>Дата додавання</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="barcode, iterStat : ${outdatedBarcodes}">
+                                <td data-label="№" th:text="${iterStat.count}">1</td>
+                                <td data-label="Штрих Код">
+                                    <span th:text="${barcode.code}">123456</span>
+                                    <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-2 text-decoration-none text-success" title="Деталі">
+                                        <i class="bi bi-info-circle"></i>
+                                    </a>
+                                </td>
+                                <td data-label="APN" th:text="${barcode.apn}">M3130001</td>
+                                <td data-label="Кількість" th:text="${barcode.quantity}">18000</td>
+                                <td data-label="Локація">
+                    <span th:if="${barcode.location == 'prestock'}"
+                          class="badge bg-success" th:text="${barcode.location}"></span>
+                                    <span th:if="${barcode.location == 'wires'}"
+                                          class="badge bg-success" th:text="${barcode.location}"></span>
+                                    <span th:if="${barcode.location != 'prestock' and barcode.location != 'wires'}"
+                                          th:text="${barcode.location}"></span>
+                                </td>
+                                <td data-label="Дата додавання" th:text="${#temporals.format(barcode.creationDate, 'dd.MM.yyyy')}">09-06-2025</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-center mt-3">
+                        <a th:href="@{/barcodes/download/outdated}" class="btn btn-warning text-white">
+                            <i class="bi bi-download me-2"></i> Завантажити повний список
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary-subtle text-primary-emphasis fs-5">
+                    <i class="bi bi-bar-chart-line-fill me-2"></i>Статистика
+                </div>
+                <div class="card-body">
+                    <div class="row text-center g-3 mb-4 stat-card">
+                        <div class="col-6 col-md-3">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body d-flex flex-column justify-content-center">
+                                    <i class="bi bi-box-seam fs-2 text-primary"></i>
+                                    <h4 class="card-title my-2" th:text="${stats.totalInDb}">0</h4>
+                                    <p class="card-text text-muted small mb-0">На складі</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body d-flex flex-column justify-content-center">
+                                    <i class="bi bi-plus-circle-dotted fs-2 text-success"></i>
+                                    <h4 class="card-title my-2" th:text="${stats.totalAdded}">0</h4>
+                                    <p class="card-text text-muted small mb-0">Всього додано</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body d-flex flex-column justify-content-center">
+                                    <i class="bi bi-dash-circle-dotted fs-2 text-danger"></i>
+                                    <h4 class="card-title my-2" th:text="${stats.totalDiscarded}">0</h4>
+                                    <p class="card-text text-muted small mb-0">Всього списано</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body d-flex flex-column justify-content-center">
+                                    <i class="bi bi-geo-alt-fill fs-2 text-info"></i>
+                                    <h4 class="card-title my-2" th:text="${stats.mostPopularLocation}">-</h4>
+                                    <p class="card-text text-muted small mb-0">Топ локація</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="text-center text-muted fw-normal">Додано (за 12 міс.)</h5>
+                            <canvas id="addedChart" style="max-width: 100%;"></canvas>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="text-center text-muted fw-normal">Списано (за 12 міс.)</h5>
+                            <canvas id="discardedChart" style="max-width: 100%;"></canvas>
+                        </div>
+                        </div>
+                    </div>
+                </div>
+            <div class="col-lg-12 mb-4"> <div class="card shadow-sm"
+                                              th:if="${fillRateChartData != null AND not #lists.isEmpty(fillRateChartData.data)}"
+                                              th:data-fill-rate-stats-json="${fillRateChartDataJson}">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+                    <i class="bi bi-bar-chart-line-fill me-2"></i>Заповненість Складу (Топ-10)
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted">Кількість ящиків (штрих-кодів) у кожній локації.</p>
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="fillRateChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            </div>
+
+
+        </div>
+
+        <div class="col-md-4">
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+                    <i class="bi bi-database-fill-gear me-2"></i>Панель Бази Даних
+                </div>
+                <div class="list-group list-group-flush">
+                    <a th:href="@{/barcodes}" class="list-group-item list-group-item-action d-flex align-items-center py-3">
+                        <i class="bi bi-database me-3 fs-4 text-success"></i>
+                        <span class="fs-6 fw-medium">Переглянути Базу Даних (BCT)</span>
+                    </a>
+                    <a th:href="@{/materials}" class="list-group-item list-group-item-action d-flex align-items-center py-3">
+                        <i class="bi bi-diagram-3-fill me-3 fs-4 text-success"></i>
+                        <span class="fs-6 fw-medium">База Матеріалів (APN)</span>
+                    </a>
+                    <a th:href="@{/upload-new}" class="list-group-item list-group-item-action d-flex align-items-center py-3">
+                        <i class="bi bi-file-earmark-plus-fill me-3 fs-4 text-success"></i>
+                        <span class="fs-6 fw-medium">Добавити Штрих Коди</span>
+                    </a>
+                    <a th:href="@{/transfer}" class="list-group-item list-group-item-action d-flex align-items-center py-3">
+                        <i class="bi bi-arrow-right-square-fill me-3 fs-4 text-success"></i>
+                        <span class="fs-6 fw-medium">Перенести на локацію</span>
+                    </a>
+                    <a th:href="@{/upload-discarded}" class="list-group-item list-group-item-action d-flex align-items-center py-3">
+                        <i class="bi bi-file-earmark-minus-fill me-3 fs-4 text-success"></i>
+                        <span class="fs-6 fw-medium">Списати Штрих Коди</span>
+                    </a>
+                    <a th:href="@{/discarded}" class="list-group-item list-group-item-action d-flex align-items-center py-3">
+                        <i class="bi bi-clipboard-data-fill me-3 fs-4 text-success"></i>
+                        <span class="fs-6 fw-medium">Облік списаних</span>
+                    </a>
+<!--                    <a th:href="@{/import-frozen}" class="list-group-item list-group-item-action d-flex align-items-center py-3 text-warning">-->
+<!--                        <i class="bi bi-archive-fill me-3 fs-4"></i>-->
+<!--                        <span class="fs-6 fw-medium">Завантажити Архів (Frozen)</span> </a>-->
+                    <a th:href="@{/logout}" class="list-group-item list-group-item-action d-flex align-items-center py-3 text-danger">
+                        <i class="bi bi-box-arrow-left me-3 fs-4"></i>
+                        <span class="fs-6 fw-medium">Вийти з системи</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info-subtle text-info-emphasis fs-5">
+                    <i class="bi bi-hdd-stack-fill me-2"></i>Склади
+                </div>
+                <div class="card-body d-grid gap-3">
+                    <a th:href="@{/warehouse}" class="btn btn-lg btn-info text-white">
+                        <i class="bi bi-boxes me-2"></i> Матеріали
+                    </a>
+                    <a href="http://dws.dss2.tk/" target="_blank" class="btn btn-lg btn-warning text-white">
+                        <i class="bi bi-diagram-3-fill me-2"></i> Провідники (DWS)
+                    </a>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+                    <i class="bi bi-clock-history me-2"></i>Журнал Дій
+                </div>
+                <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+
+                    <div th:if="${#lists.isEmpty(activityLog)}" class="list-group-item text-muted text-center p-3">
+                        Історія активності порожня.
+                    </div>
+
+                    <a th:each="log : ${activityLog}" th:href="@{${log.linkUrl}}"
+                       class="list-group-item list-group-item-action py-3">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">
+                                <i class="me-2" th:classappend="${log.iconClass}"></i>
+                                <span th:text="${log.description}">Опис дії</span>
+                            </h6>
+                        </div>
+                        <small class="text-muted" th:text="${#temporals.format(log.timestamp, 'dd.MM.yyyy о HH:mm')}">Дата</small>
+                    </a>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4" th:if="${not #lists.isEmpty(mismatches)}">
+                <div class="card-header bg-danger-subtle text-danger-emphasis fs-5">
+                    <i class="bi bi-compass-fill me-2"></i>Невідповідності Локацій
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover m-0 text-center align-middle small">
+                            <thead class="table-danger-subtle">
+                            <tr>
+                                <th>Штрих Код</th>
+                                <th>APN</th>
+                                <th>Фактична Локація</th>
+                                <th>Має бути (Master)</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="m : ${mismatches}">
+                                <td>
+                                    <span th:text="${m.barcode}">12345</span>
+                                    <a th:href="@{'/barcodes/' + ${m.barcodeId}}" class="ms-1 text-decoration-none text-success" title="Деталі">
+                                        <i class="bi bi-info-circle"></i>
+                                    </a>
+                                </td>
+                                <td th:text="${m.apn}">M123</td>
+                                <td>
+                                    <span class="badge bg-danger-subtle text-danger-emphasis" th:text="${m.actualLocation}">ST 4</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success-subtle text-success-emphasis" th:text="${m.expectedLocation}">SK 1</span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-muted small p-2 text-center">
+                        Показано останні 5 невідповідностей (ігноруючи 'prestock' та 'wires').
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    document.addEventListener("DOMContentLoaded", function () {
+
+        if (typeof Chart === 'undefined') {
+            console.error("Бібліотека Chart.js не завантажилась! Перевірте підключення.");
+            return;
+        }
+
+        const lineChartOptions = {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        precision: 0
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        };
+
+        const barChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        };
+
+        try {
+
+            const addedChartCanvas = document.getElementById('addedChart');
+            if (addedChartCanvas) {
+                const addedData = {
+                    labels: /*[[${addedChartData.labels}]]*/ [],
+                    datasets: [{
+                        label: 'Додано',
+                        data: /*[[${addedChartData.data}]]*/ [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderWidth: 1,
+                        fill: true,
+                        tension: 0.1
+                    }]
+                };
+                new Chart(addedChartCanvas, {
+                    type: 'line',
+                    data: addedData,
+                    options: lineChartOptions
+                });
+            }
+
+            const discardedChartCanvas = document.getElementById('discardedChart');
+            if (discardedChartCanvas) {
+                const discardedData = {
+                    labels: /*[[${discardedChartData.labels}]]*/ [],
+                    datasets: [{
+                        label: 'Списано',
+                        data: /*[[${discardedChartData.data}]]*/ [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderWidth: 1,
+                        fill: true,
+                        tension: 0.1
+                    }]
+                };
+                new Chart(discardedChartCanvas, {
+                    type: 'line',
+                    data: discardedData,
+                    options: lineChartOptions
+                });
+            }
+
+            const fillRateChartCanvas = document.getElementById('fillRateChart');
+            const fillRateCard = document.querySelector('[data-fill-rate-stats-json]');
+
+            if (fillRateChartCanvas && fillRateCard) {
+                const fillRateStatsJson = fillRateCard.dataset.fillRateStatsJson;
+
+                if (fillRateStatsJson) {
+                    const fillRateStats = JSON.parse(fillRateStatsJson);
+                    const fillRateData = {
+                        labels: fillRateStats.labels,
+                        datasets: [{
+                            label: 'К-сть ящиків',
+                            data: fillRateStats.data,
+                            backgroundColor: 'rgba(25, 135, 84, 0.7)',
+                            borderColor: 'rgba(25, 135, 84, 1)',
+                            borderWidth: 1
+                        }]
+                    };
+                    new Chart(fillRateChartCanvas, {
+                        type: 'bar',
+                        data: fillRateData,
+                        options: barChartOptions
+                    });
+                }
+            }
+
+        } catch (e) {
+            console.error("Помилка при ініціалізації графіків: ", e);
+        }
+
+    });
+    /*]]>*/
+</script>
+</body>
+</html>

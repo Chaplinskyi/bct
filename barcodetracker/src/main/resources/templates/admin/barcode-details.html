@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Деталі Штрих Коду</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body class="bg-light">
+<div class="container py-4">
+
+    <div class="logo-title-container d-flex flex-column flex-sm-row align-items-center justify-content-center mb-4">
+        <img src="/images/logo.png" alt="Логотип">
+        <h1 class="text-success m-0 text-center">BCT - Інформація про Штрих Код</h1>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+            <i class="bi bi-person-vcard-fill me-2"></i>Основна Інформація
+        </div>
+        <div class="card-body">
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex flex-column d-sm-flex-row justify-content-sm-between align-items-sm-center flex-wrap">
+                    <span class="text-muted">Штрих Код</span>
+                    <strong class="fs-5" th:text="${barcode.code}">123456</strong>
+                </li>
+                <li class="list-group-item d-flex flex-column d-sm-flex-row justify-content-sm-between align-items-sm-center flex-wrap">
+                    <span class="text-muted">APN</span>
+                    <strong th:text="${barcode.apn}">APN</strong>
+                </li>
+
+                <li th:if="${masterData != null}"
+                    class="list-group-item d-flex flex-column d-sm-flex-row justify-content-sm-between align-items-sm-center flex-wrap"
+                    style="background-color: #f8f9fa;"> <span class="text-muted fw-bold">
+        <i class="bi bi-diagram-3-fill me-2"></i>Місце (Master DB)
+    </span>
+                    <strong th:text="${masterData.location + ' (' + masterData.supermarket + ')'}">
+                        SK/В 6 (SKODA KSK - SM6)
+                    </strong>
+                </li>
+                <li class="list-group-item d-flex flex-column d-sm-flex-row justify-content-sm-between align-items-sm-center flex-wrap">
+                    <span class="text-muted">Кількість</span>
+                    <strong th:text="${barcode.quantity}">1</strong>
+                </li>
+                <li class="list-group-item d-flex flex-column d-sm-flex-row justify-content-sm-between align-items-sm-center flex-wrap">
+                    <span class="text-muted">Дата додавання</span>
+                    <strong th:text="${barcode.creationDate != null ? #temporals.format(barcode.creationDate, 'dd.MM.yyyy HH:mm') : 'Не вказано'}">2025-06-10</strong>
+                </li>
+                <li class="list-group-item d-flex flex-column d-sm-flex-row justify-content-sm-between align-items-sm-center flex-wrap">
+                    <span class="text-muted">Дата ост. зміни</span>
+                    <strong th:text="${#temporals.format(barcode.lastUpdated, 'dd.MM.yyyy HH:mm')}">2025-06-10</strong>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+            <i class="bi bi-pencil-square me-2"></i>Управління
+        </div>
+        <div class="card-body">
+
+            <div class="row align-items-center py-3 border-bottom">
+                <div class="col-lg-3">
+                    <h5><i class="bi bi-geo-alt me-2"></i>Локація</h5>
+                </div>
+                <div class="col-lg-9">
+                    <div th:if="${barcode.location == 'wires'}">
+                        <span class="badge bg-success fs-6" th:text="${barcode.location}">wires</span>
+                        <small class="text-muted">(локацію даного Штрих Коду можна знайти в DWS)</small>
+                    </div>
+
+                    <form th:unless="${barcode.location == 'wires'}" th:action="@{'/barcodes/' + ${barcode.id} + '/updateLocation'}" method="post"
+                          class="d-flex align-items-center flex-wrap gap-3" onsubmit="enableLocationNumberIfDisabled()">
+
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="isExcessCheckbox" name="isExcess" value="true">
+                            <label class="form-check-label" for="isExcessCheckbox">Excess</label>
+                        </div>
+
+                        <select id="locationSelect" name="newLocation" class="form-select w-auto">
+                            <option th:if="${locationMap.containsKey('prestock')}" value="prestock">prestock</option>
+                            <option th:each="loc : ${locationMap}"
+                                    th:unless="${loc.key == 'prestock'}"
+                                    th:value="${loc.key}"
+                                    th:text="${loc.key}">
+                            </option>
+                        </select>
+
+                        <div class="d-flex align-items-center">
+                            <label for="locationNumber" class="me-2 mb-0">№</label>
+                            <select class="form-select w-auto" name="locationNumber" id="locationNumber">
+                                <option value="">—</option>
+                            </select>
+                        </div>
+
+                        <button id="moveLocationBtn" type="submit" class="btn btn-success">Move</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="row align-items-center py-3">
+                <div class="col-lg-3">
+                    <h5><i class="bi bi-toggles me-2"></i>Статус</h5>
+                </div>
+                <div class="col-lg-9">
+                    <form th:action="@{'/barcodes/' + ${barcode.id} + '/updateStatus'}" method="post" class="d-flex align-items-center gap-2">
+                        <select id="statusSelect" name="newStatus" class="form-select w-auto">
+                            <option value="stock" th:selected="${barcode.status == 'stock'}">stock</option>
+                            <option value="out" th:selected="${barcode.status == 'out'}">out</option>
+                            <option value="check" th:selected="${barcode.status == 'check'}">check</option>
+                        </select>
+                        <button id="moveStatusBtn" type="submit" class="btn btn-success">Move</button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+                    <h4><i class="bi bi-compass"></i> Історія локацій</h4>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li th:each="loc : ${locationHistory}" class="list-group-item">
+                        <b th:text="${loc.newLocation}">Локація</b> —
+                        <span th:text="${#temporals.format(loc.changeTime, 'dd.MM.yyyy HH:mm')}">Дата</span>
+                    </li>
+                    <li th:if="${#lists.isEmpty(locationHistory)}" class="list-group-item text-muted">
+                        Історія локацій порожня.
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+                    <h4><i class="bi bi-arrow-left-right"></i> Історія статусів</h4>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li th:each="stat : ${statusHistory}" class="list-group-item">
+                        <b th:text="${stat.newStatus}">Статус</b> —
+                        <span th:text="${#temporals.format(stat.changeTime, 'dd.MM.yyyy HH:mm')}">Дата</span>
+                    </li>
+                    <li th:if="${#lists.isEmpty(statusHistory)}" class="list-group-item text-muted">
+                        Історія статусів порожня.
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-center flex-wrap gap-2 mt-4">
+        <a th:href="@{/barcodes}" class="btn btn-success">
+            <i class="bi bi-database me-1"></i>До Бази Даних
+        </a>
+        <a th:href="@{/dashboard}" class="btn btn-success">
+            <i class="bi bi-house-door me-1"></i>На головну
+        </a>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+
+    const locationMap = /*[[${locationMap}]]*/ {};
+    const currentLocationString = /*[[${barcode.location}]]*/ 'prestock';
+
+    function enableLocationNumberIfDisabled() {
+        const numSelect = document.getElementById("locationNumber");
+        if (numSelect && numSelect.disabled) {
+            numSelect.disabled = false;
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+
+        const statusSelect = document.getElementById("statusSelect");
+        const moveStatusBtn = document.getElementById("moveStatusBtn");
+
+        if (statusSelect) {
+            const initialStatus = statusSelect.value;
+            function checkStatusChange() {
+                moveStatusBtn.disabled = (statusSelect.value === initialStatus);
+            }
+            statusSelect.addEventListener("change", checkStatusChange);
+            checkStatusChange();
+        }
+
+        const locationForm = document.querySelector("form[onsubmit='enableLocationNumberIfDisabled()']");
+        if (locationForm) {
+            const excessCheckbox = document.getElementById("isExcessCheckbox");
+            const locationSelect = document.getElementById("locationSelect");
+            const numSelect = document.getElementById("locationNumber");
+            const moveLocationBtn = document.getElementById("moveLocationBtn");
+
+            let initialExcess = currentLocationString.includes("excess");
+            let initialLocation = "prestock";
+            let initialNumber = "";
+
+            let tempLocation = currentLocationString.replace("excess", "").trim();
+
+            let bestMatch = "";
+            for (let key in locationMap) {
+                if (tempLocation.startsWith(key) && key.length > bestMatch.length) {
+                    bestMatch = key;
+                }
+            }
+
+            if (bestMatch) {
+                initialLocation = bestMatch;
+                initialNumber = tempLocation.substring(bestMatch.length).trim();
+            } else if (!currentLocationString.includes("prestock")) {
+                let parts = tempLocation.split(" ");
+                initialLocation = parts[0] || "";
+                initialNumber = parts[1] || "";
+            }
+
+            excessCheckbox.checked = initialExcess;
+            locationSelect.value = initialLocation;
+
+            function updateNumberDropdown() {
+                const selectedLocation = locationSelect.value;
+                const maxNumber = locationMap[selectedLocation] || 0;
+
+                numSelect.innerHTML = "";
+
+                if (selectedLocation === "prestock") {
+                    numSelect.disabled = true;
+                    excessCheckbox.disabled = true;
+                    excessCheckbox.checked = false;
+                    numSelect.add(new Option("—", ""));
+                } else {
+                    numSelect.disabled = false;
+                    excessCheckbox.disabled = false;
+                    numSelect.add(new Option("—", ""));
+                    for (let i = 1; i <= maxNumber; i++) {
+                        numSelect.add(new Option(i, i));
+                    }
+                }
+            }
+
+            function checkLocationChange() {
+                const isExcess = excessCheckbox.checked;
+                const location = locationSelect.value;
+                const number = numSelect.value;
+
+                const isSameAsInitial = (isExcess === initialExcess &&
+                    location === initialLocation &&
+                    number === initialNumber);
+
+                const requiresNumber = (location !== "prestock" && locationMap[location] > 0);
+                const numberIsEmpty = (number === "");
+                const numberIsRequiredButMissing = requiresNumber && numberIsEmpty;
+
+                moveLocationBtn.disabled = isSameAsInitial || numberIsRequiredButMissing;
+            }
+
+            excessCheckbox.addEventListener("change", checkLocationChange);
+            locationSelect.addEventListener("change", () => {
+                updateNumberDropdown();
+                checkLocationChange();
+            });
+            numSelect.addEventListener("change", checkLocationChange);
+
+            updateNumberDropdown();
+            numSelect.value = initialNumber;
+            checkLocationChange();
+        }
+    });
+    /*]]>*/
+</script>
+</body>
+</html>

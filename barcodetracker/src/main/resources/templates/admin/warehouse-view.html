@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="uk">
+
+<head>
+    <meta charset="UTF-8">
+    <title>BCT - Склад Матеріалів</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        .page-link.green { background-color: #D1E7DD; color: #0A3622; border-color: #A3D1B9; }
+        .page-link.green:hover { background-color: #B7D9C8; color: #0A3622; border-color: #A3D1B9; }
+        .table th { background-color: #eaf3eb; }
+    </style>
+</head>
+
+<body class="bg-light">
+<div class="container py-4">
+
+    <div class="logo-title-container d-flex flex-column flex-sm-row align-items-center justify-content-center mb-4">
+        <img th:src="@{/images/logo.png}" alt="Логотип" width="100" height="100">
+        <h1 class="text-success m-0 text-center">BCT - Склад Матеріалів</h1>
+    </div>
+
+    <div class="row g-4">
+
+        <div class="col-md-4 order-md-2">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success-subtle text-success-emphasis fs-5">
+                    <i class="bi bi-filter-circle-fill me-2"></i>Фільтри складу
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/warehouse}" method="get" class="d-grid gap-3" id="filterForm">
+                        <div>
+                            <label for="apnInput" class="form-label fw-medium">Пошук по APN</label>
+                            <input type="text" class="form-control" id="apnInput" name="apn"
+                                   placeholder="Введіть APN..." th:value="${apnQuery}">
+                        </div>
+                        <hr>
+                        <div>
+                            <label for="rackSelect" class="form-label fw-medium">Стелаж</label>
+                            <select class="form-select" id="rackSelect" name="rack">
+                                <option value=""> — </option>
+                                <option th:each="r : ${allRacks}"
+                                        th:value="${r}"
+                                        th:text="${r}"
+                                        th:selected="${r == rackQuery}">
+                                </option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="baySelect" class="form-label fw-medium">№</label>
+                            <select class="form-select" id="baySelect" name="bay">
+                                <option value=""> — </option>
+                                <option th:each="b : ${allBays}"
+                                        th:value="${b}"
+                                        th:text="${b}"
+                                        th:selected="${b == bayQuery}">
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-2">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-search me-1"></i> Застосувати
+                            </button>
+                            <a th:href="@{/warehouse}" class="btn btn-secondary w-100">
+                                <i class="bi bi-x-lg me-1"></i> Скинути
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info-subtle text-info-emphasis fs-5">
+                    <i class="bi bi-compass-fill me-2"></i>Навігація
+                </div>
+                <div class="list-group list-group-flush">
+                    <a th:href="@{/dashboard}" class="list-group-item list-group-item-action py-3">
+                        <i class="bi bi-house-door-fill me-3 fs-4 text-success"></i>На головну
+                    </a>
+                    <a th:href="@{/barcodes}" class="list-group-item list-group-item-action py-3">
+                        <i class="bi bi-database me-3 fs-4 text-success"></i>Вся База Даних
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8 order-md-1">
+
+            <div th:if="${apnQuery != null and !apnQuery.isEmpty()}">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-primary-subtle text-primary-emphasis fs-5">
+                        <i class="bi bi-geo-alt-fill me-2"></i>Локації для APN: <span class="fw-bold" th:text="${apnQuery}"></span>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${#lists.isEmpty(materialLocations)}" class="text-center p-4">
+                            <h4 class="text-muted">Матеріал з APN <b th:text="${apnQuery}"></b> не знайдено.</h4>
+                        </div>
+                        <div class="accordion" id="locationAccordion" th:unless="${#lists.isEmpty(materialLocations)}">
+                            <div class="accordion-item" th:each="entry, iter : ${materialLocations}">
+                                <h2 class="accordion-header" th:id="'heading' + ${iter.index}">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                            th:data-bs-target="'#collapse' + ${iter.index}" aria-expanded="false"
+                                            th:aria-controls="'collapse' + ${iter.index}">
+                                        <div class="d-flex justify-content-between w-100 pe-3">
+                                            <span>
+                                                <i class="bi bi-inboxes-fill text-success me-2"></i>
+                                                <strong th:text="${entry.key.rack}"></strong>
+                                                <span th:if="${entry.key.bay != null and !entry.key.bay.isEmpty()}"
+                                                      th:text="' / Проліт: ' + ${entry.key.bay}"></span>
+                                            </span>
+                                            <span class="badge bg-primary rounded-pill">
+                                                <th:block th:if="${#strings.equalsIgnoreCase(entry.key.rack, 'wires')}">
+                                                    <span th:text="${#aggregates.sum(entry.value.![quantity])} + ' м.'"></span> </th:block>
+                                                <th:block th:unless="${#strings.equalsIgnoreCase(entry.key.rack, 'wires')}">
+                                                    <span th:text="${#aggregates.sum(entry.value.![quantity])} + ' шт.'"></span> </th:block>
+                                             </span>
+                                        </div>
+                                    </button>
+                                </h2>
+                                <div th:id="'collapse' + ${iter.index}" class="accordion-collapse collapse"
+                                     th:aria-labelledby="'heading' + ${iter.index}" data-bs-parent="#locationAccordion">
+                                    <div class="accordion-body p-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped table-hover m-0 align-middle small">
+                                                <thead>
+                                                <tr>
+                                                    <th class="ps-3">Штрих Код</th>
+                                                    <th>APN</th>
+                                                    <th>Кількість</th>
+                                                    <th>Дата додавання</th>
+                                                </tr>
+                                                </thead>
+                                                <tbody>
+                                                <tr th:each="barcode : ${entry.value}">
+                                                    <td data-label="Штрих Код">
+                                                        <span th:text="${barcode.code}"></span>
+                                                        <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-1 text-decoration-none text-success" title="Деталі">
+                                                            <i class="bi bi-info-circle"></i>
+                                                        </a>
+                                                    </td>
+                                                    <td data-label="APN" th:text="${barcode.apn}"></td>
+                                                    <td data-label="Кількість" th:text="${barcode.quantity}"></td>
+                                                    <td data-label="Дата додавання" th:text="${#temporals.format(barcode.creationDate, 'dd.MM.yy')}"></td>
+                                                </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div th:unless="${apnQuery != null and !apnQuery.isEmpty()}">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-success-subtle text-success-emphasis fs-5 d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-table me-2"></i>
+                            <span th:if="${rackQuery != null and !rackQuery.isEmpty()}" th:text="'Стелаж: ' + ${rackQuery}"></span>
+                            <span th:if="${bayQuery != null and !bayQuery.isEmpty()}" th:text="'№ - ' + ${bayQuery}"></span>
+                            <span th:if="${(rackQuery == null or rackQuery.isEmpty()) and (bayQuery == null or bayQuery.isEmpty())}">Cклад матеріалів</span>
+                        </span>
+                        <span class="badge bg-secondary rounded-pill" th:text="${warehousePage.totalElements} + ' записів'"></span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover m-0 text-center align-middle small">
+                                <thead>
+                                <tr>
+                                    <th>№</th>
+                                    <th>Штрих Код</th>
+                                    <th>APN</th>
+                                    <th>К-сть</th>
+                                    <th>Локація</th>
+                                    <th>Дата доб.</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="barcode, iterStat : ${warehousePage.content}">
+                                    <td data-label="№" th:text="${(currentPage * pageSize) + iterStat.count}"></td>
+                                    <td data-label="Штрих Код">
+                                        <span th:text="${barcode.code}"></span>
+                                        <a th:href="@{'/barcodes/' + ${barcode.id}}" class="ms-1 text-decoration-none text-success" title="Деталі">
+                                            <i class="bi bi-info-circle"></i>
+                                        </a>
+                                    </td>
+                                    <td data-label="APN" th:text="${barcode.apn}"></td>
+                                    <td data-label="К-сть" th:text="${barcode.quantity}"></td>
+                                    <td data-label="Локація">
+                    <span th:if="${barcode.location == 'prestock'}"
+                          class="badge bg-success" th:text="${barcode.location}"></span>
+                                        <span th:if="${barcode.location == 'wires'}"
+                                              class="badge bg-success" th:text="${barcode.location}"></span>
+                                        <span th:if="${barcode.location != 'prestock' and barcode.location != 'wires'}"
+                                              th:text="${barcode.location}"></span>
+                                    </td>
+                                    <td data-label="Дата доб." th:text="${#temporals.format(barcode.creationDate, 'dd.MM.yy')}"></td>
+                                </tr>
+                                <tr th:if="${warehousePage.empty}">
+                                    <td colspan="6" class="text-center text-muted p-4">Нічого не знайдено.</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <nav th:if="${totalPages > 1}" class="mt-4">
+                    <ul class="pagination justify-content-center flex-wrap">
+                        <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                            <a class="page-link green" th:href="@{/warehouse(page=0, rack=${rackQuery}, bay=${bayQuery})}">Перша</a>
+                        </li>
+                        <li class="page-item" th:classappend="${currentPage == 0} ? 'disabled'">
+                            <a class="page-link green" th:href="@{/warehouse(page=${currentPage - 1}, rack=${rackQuery}, bay=${bayQuery})}">←</a>
+                        </li>
+                        <li class="page-item disabled"><span class="page-link text-dark" th:text="'Стор. ' + (${currentPage} + 1) + ' з ' + ${totalPages}"></span></li>
+                        <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
+                            <a class="page-link green" th:href="@{/warehouse(page=${currentPage + 1}, rack=${rackQuery}, bay=${bayQuery})}">→</a>
+                        </li>
+                        <li class="page-item" th:classappend="${currentPage + 1 >= totalPages} ? 'disabled'">
+                            <a class="page-link green" th:href="@{/warehouse(page=${totalPages - 1}, rack=${rackQuery}, bay=${bayQuery})}">Остання</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const locationMap = /*[[${locationMap}]]*/ {};
+    const initialRackQuery = /*[[${rackQuery}]]*/ null;
+    const initialBayQuery = /*[[${bayQuery}]]*/ null;
+
+    console.log("Location Map:", locationMap);
+    console.log("Initial Rack:", initialRackQuery);
+    console.log("Initial Bay:", initialBayQuery);
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const rackSelect = document.getElementById('rackSelect');
+        const baySelect = document.getElementById('baySelect');
+        const filterForm = document.getElementById('filterForm');
+        const apnInput = document.getElementById('apnInput');
+
+        function updateBayOptions() {
+            if (!rackSelect || !baySelect || !locationMap) return;
+
+            const selectedRack = rackSelect.value;
+            let maxBay = 0;
+            let shouldBeDisabled = true;
+
+            if (selectedRack && locationMap.hasOwnProperty(selectedRack)) {
+                const bayCount = parseInt(locationMap[selectedRack], 10);
+                if (!isNaN(bayCount) && bayCount > 0) {
+                    maxBay = bayCount;
+                    shouldBeDisabled = false;
+                }
+            }
+
+            console.log(`Updating bays for rack "${selectedRack}". MaxBay: ${maxBay}, Should be disabled: ${shouldBeDisabled}`); // DEBUG
+
+            const currentSelectedBayValue = baySelect.value;
+
+            baySelect.innerHTML = '';
+
+            baySelect.add(new Option('—', ''));
+
+            if (maxBay > 0) {
+                console.log(`Generating bay options from 1 to ${maxBay}`);
+                for (let i = 1; i <= maxBay; i++) {
+                    const optionValue = i.toString();
+                    baySelect.add(new Option(optionValue, optionValue));
+                }
+            }
+
+            if (!shouldBeDisabled && currentSelectedBayValue && baySelect.querySelector(`option[value="${currentSelectedBayValue}"]`)) {
+                console.log(`Restoring previous bay selection: "${currentSelectedBayValue}"`);
+                baySelect.value = currentSelectedBayValue;
+            } else {
+                console.log(`Setting bay selection to default ("")`);
+                baySelect.value = "";
+            }
+
+            baySelect.disabled = shouldBeDisabled;
+            console.log(`Bay select disabled state set to: ${baySelect.disabled}`);
+        }
+
+        function updateApnState(changedElement) {
+            if (!rackSelect || !baySelect || !apnInput) return;
+
+            const rackValue = rackSelect.value;
+            const bayValue = baySelect.value;
+            const isRackOrBayFilterActive = rackValue !== "" || (bayValue !== "" && !baySelect.disabled);
+
+            apnInput.disabled = isRackOrBayFilterActive;
+            if (isRackOrBayFilterActive && changedElement !== apnInput && apnInput.value.trim() !== "") {
+                apnInput.value = "";
+            }
+        }
+
+        if (rackSelect) {
+            rackSelect.addEventListener('change', function(event) {
+                console.log("Rack select changed.");
+                updateBayOptions();
+                updateApnState(rackSelect);
+            });
+        }
+
+        if (baySelect) {
+            baySelect.addEventListener('change', function(event) {
+                console.log("Bay select changed.");
+                updateApnState(baySelect);
+            });
+        }
+
+        if (apnInput) {
+            apnInput.addEventListener('input', function() {
+                console.log("APN input detected."); // DEBUG
+                if (rackSelect.value !== "" || baySelect.value !== "") {
+                    console.log("Resetting Rack and Bay selections due to APN input.");
+                    rackSelect.value = "";
+                    updateBayOptions();
+                }
+                updateApnState(apnInput);
+            });
+        }
+
+        if (filterForm) {
+            filterForm.addEventListener('submit', function(event) {
+                console.log("Form submit initiated.");
+                if (apnInput && apnInput.disabled) { apnInput.disabled = false; }
+                if (baySelect && baySelect.disabled) { baySelect.disabled = false; }
+            });
+        }
+
+        console.log("Running initial setup on page load.");
+        if (rackSelect && baySelect && locationMap) {
+            updateBayOptions();
+            if (initialBayQuery && !baySelect.disabled && baySelect.querySelector(`option[value="${initialBayQuery}"]`)) {
+                baySelect.value = initialBayQuery;
+                console.log(`Initial bay value set to: "${initialBayQuery}"`);
+            } else if(baySelect) {
+                baySelect.value = "";
+                console.log("Initial bay value set to default ('')");
+            }
+            updateApnState(null);
+        } else {
+            console.error("Initial setup failed: Missing rackSelect, baySelect or locationMap.");
+        }
+        console.log("Initial setup complete.");
+
+    });
+    /*]]>*/
+</script>
+</body>
+</html>
