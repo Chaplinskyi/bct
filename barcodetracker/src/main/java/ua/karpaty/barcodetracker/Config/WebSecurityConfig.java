@@ -42,11 +42,12 @@ public class WebSecurityConfig {
     @Bean
     public UserDetailsService userDetailsService() {
         UserDetails user = User.withDefaultPasswordEncoder()
-                .username("user")
-                .password("karpaty123")
+                .username("text")
+                .password("text")
                 .roles("ADMIN")
                 .build();
 
         return new InMemoryUserDetailsManager(user);
     }
+
 }
